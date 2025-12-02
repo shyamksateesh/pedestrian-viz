@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+app/node_modules/
+
+# Data files (too large for git)
+data/
+app/public/data/tiles/
+*.png
+*.geojson
+app/public/data/metadata.json
+
+# Keep structure but ignore data
+!app/public/data/.gitkeep
+
+# Python
+__pycache__/
+*.pyc
+__pycache__
+
+# Environment
+.env
+.venv
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build
+app/dist/
+app/build/
+
+# IDE
+.vscode/
+.idea/
+*.swp

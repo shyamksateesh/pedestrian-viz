@@ -1,75 +1,192 @@
-# The Urban Time Traveler
+# NYC Sidewalk Time Machine
 
-**CS-GY 9223: Visualization for Machine Learning - Fall 2025**
+**CS-GY 9223: Visualization for Machine Learning - Fall 2025**  
 **Shyam Krishna Sateesh (ss20355)**
 
-### A Visual Analytics Dashboard for Pedestrian Infrastructure Evolution & ML Validation
+An interactive web application that visualizes the temporal evolution of NYC's pedestrian infrastructure using machine learning-generated maps from 2004-2024.
 
-This project is the final deliverable for CS-GY 9223. It is a web-based visual analytics tool built with D3.js and Leaflet that allows users to explore the temporal evolution of pedestrian networks in New York City.
+![NYC Sidewalk Timeline Demo](docs/demo.gif)
 
-The dashboard serves two complementary goals:
+---
 
-1.  **Temporal Analysis:** Understand how pedestrian networks (sidewalks, crosswalks) have changed over time by comparing ML-generated maps from different years.
-2.  **ML Validation:** Assess the accuracy of the `Tile2Net` pipeline by comparing its outputs against ground-truth datasets (e.g., NYC Open Data, OpenStreetMap).
+## 🎯 Project Overview
 
-## Features
+This project transforms 20+ years of aerial imagery into an explorable geospatial-temporal interface, enabling users to "time travel" through Manhattan's infrastructure history. Built with React, Leaflet, and D3.js, it processes ML model outputs (semantic segmentation via Tile2Net) into an interactive dashboard.
 
-As outlined in the project proposal, the dashboard will include:
+### Key Features
 
-* **Multi-Layer Map View:** A Leaflet/Mapbox map with toggleable layers for different years of Tile2Net outputs, ground-truth data, and aerial imagery.
-* **"Visual Diff" Modes:**
-    * **Temporal Diff:** Compares two years (e.g., 2016 vs. 2024) to show added, removed, and unchanged paths.
-    * **Validation Diff:** Compares Tile2Net output against ground truth for a single year to show correct detections, false positives, and false negatives.
-* **Timeline Slider:** An interactive slider to filter the map data by year.
-* **Linked Metrics Dashboard:** D3 charts that update with the map, showing high-level temporal metrics (e.g., total sidewalk length over time) and validation metrics (e.g., precision/recall per year).
+- **Interactive Map Interface**: Double-click any neighborhood to explore its sidewalk evolution
+- **Multi-Year Timeline**: Seamlessly transition between 11 years of data (2004-2024)
+- **Layer Controls**: Toggle between sidewalks, roads, and crosswalks
+- **ML Output Visualization**: Real-time rendering of computer vision model predictions
+- **Statistical Dashboard**: D3-powered analytics showing infrastructure growth trends
 
-## Project Setup & Installation
+---
 
-### 1. ML Pipeline (Tile2Net)
-
-This project uses the `Tile2Net` pipeline to generate pedestrian networks from aerial imagery.
-
-```bash
-# Clone the Tile2Net repository (as per project slides)
-git clone [https://github.com/VIDA-NYU/tile2net.git](https://github.com/VIDA-NYU/tile2net.git)
-cd tile2net
-
-# Follow their installation instructions (likely using conda)
-# conda env create -f environment.yml
-# conda activate tile2net
+## 🏗️ Project Structure
+```
+pedestrian-viz/
+├── app/                          # React application
+│   ├── src/
+│   │   └── App.jsx              # Main application component
+│   ├── public/
+│   │   └── data/                # Processed data (gitignored)
+│   └── package.json
+├── scripts/
+│   ├── prepare_data.py          # Local data preparation
+│   └── colab_pipeline.py        # Google Colab processing pipeline
+├── docs/                        # Documentation & assets
+└── README.md
 ```
 
-### 2. Visualization Dashboard
+---
 
-The dashboard is a static HTML/CSS/JavaScript application.
+## 🚀 Quick Start
 
+### Prerequisites
+
+- Node.js 18+ and npm
+- Python 3.8+ (for data preparation)
+- Google Colab account (for large-scale processing)
+
+### 1. Clone the Repository
 ```bash
-# No installation needed, just serve the files.
-# (e.g., using Python's simple HTTP server)
-python3 -m http.server
+git clone https://github.com/YOUR_USERNAME/pedestrian-viz.git
+cd pedestrian-viz
 ```
 
-### 3. Dependencies
+### 2. Install Dependencies
+```bash
+cd app
+npm install
+```
 
-* Python (for Tile2Net and data processing)
-* `geopandas`, `pandas`, `gdal` (for processing GeoJSON/shapefiles)
-* D3.js (for visualization)
-* Leaflet.js (for the base map)
+### 3. Prepare Data
 
-## Data
+**Option A: Use Pre-processed Data** (Fastest)
+```bash
+# Download from Google Drive (link in docs/DATA.md)
+# Extract to app/public/data/
+```
 
-The dashboard loads pre-processed GeoJSON files. All processing is done offline.
+**Option B: Process Your Own Area**
+```bash
+cd ../scripts
+python prepare_data.py
+```
+
+### 4. Run the Application
+```bash
+cd ../app
+npm run dev
+```
+
+Open `http://localhost:5173` in your browser.
+
+---
+
+## 📊 Data Pipeline
+
+### ML Processing (Tile2Net)
+
+The project uses [Tile2Net](https://github.com/VIDA-NYU/tile2net) for semantic segmentation:
+
+1. **Input**: NYC aerial imagery (2004-2024) from NYC Planimetrics
+2. **Processing**: Deep learning model detects sidewalks, roads, crosswalks
+3. **Output**: Shapefiles with polygon geometries
+
+### Data Preparation Workflow
+```
+Raw Tile2Net Output
+    ↓
+[prepare_data.py]
+    ├── Convert shapefiles → GeoJSON
+    ├── Stitch 4×4 tile grids → Single PNG
+    ├── Optimize images (4096px → 1024px)
+    └── Generate metadata.json
+    ↓
+React-Ready Data Structure
+```
+
+---
+
+## 🗺️ Current Coverage
+
+- **East Harlem**: 11 years (2004-2024) ✅
+- **Hudson Yards**: 10 years (2004-2024, missing 2022) ✅
+- **Full Manhattan**: In progress (340 tiles)
+
+---
+
+## 🛠️ Technical Stack
+
+### Frontend
+- **React 18**: Component-based UI
+- **Leaflet.js**: Interactive maps
+- **D3.js**: Statistical visualizations
+- **Vite**: Build tooling
+
+### Data Processing
+- **Python**: Data pipeline orchestration
+- **GeoPandas**: Geospatial data manipulation
+- **Pillow**: Image processing
+- **Tile2Net**: ML inference pipeline
 
 ### Data Sources
+- NYC Planimetrics (Aerial Imagery)
+- NYC Open Data (Ground truth validation)
+- OpenStreetMap (Contextual data)
 
-* **Aerial Imagery:** [NYC Planimetrics](https://gis.ny.gov/imagery/planimetric-data) (e.g., 2016, 2020, 2024)
-* **ML Output:** Generated by running Tile2Net on the aerial imagery for the Lower Manhattan test area.
-* **Ground Truth 1:** [NYC Open Data (Sidewalks)](https://data.cityofnewyork.us/City-Government/Sidewalk/vfe8-6g4x)
-* **Ground Truth 2:** [NYC Open Data (Crosswalks)](https://data.cityofnewyork.us/City-Government/Street-Pavement-Markings-Crosswalk/b9th-556j)
-* **Ground Truth 3:** [OpenStreetMap](https://www.openstreetmap.org) (via Geofabrik or Overpass API)
-* **Contextual Validation:** [NYC Vision Zero View](https://visionzero.nyc/maps-data/)
+---
 
-### Target Area
+## 📁 Data Structure
+```
+app/public/data/
+├── metadata.json                 # Global configuration
+└── tiles/
+    ├── east_harlem_tile_0/
+    │   ├── metadata.json        # Tile-specific bounds
+    │   ├── imagery/
+    │   │   ├── 2004.png         # Stitched satellite images
+    │   │   └── ...
+    │   └── networks/
+    │       ├── 2004.geojson     # ML-detected features
+    │       └── ...
+    └── hudson_yards_tile_0/
+        └── ...
+```
 
-* **Location:** Lower Manhattan
-* **Bounds:** Canal St (North), Broadway (West), Battery Park (South), East River (East)
+---
+
+## 🎓 Academic Context
+
+This project fulfills the requirements for CS-GY 9223 by:
+
+1. **Visualizing ML Outputs**: Interactive rendering of semantic segmentation results
+2. **Temporal Analysis**: Year-over-year comparison of model predictions
+3. **Geospatial Analytics**: Statistical analysis of infrastructure evolution
+4. **Data Storytelling**: Intuitive UX for exploring complex spatiotemporal data
+
+---
+
+## 🔮 Future Enhancements
+
+- [ ] Multi-tile selection (compare neighborhoods)
+- [ ] Ground truth validation overlay
+- [ ] Advanced analytics dashboard (D3 charts)
+- [ ] Export functionality (GIF generation, data download)
+- [ ] Mobile responsiveness
+
+---
+
+## 📄 License
+
+MIT License - See LICENSE file for details
+
+---
+
+## 🙏 Acknowledgments
+
+- Tile2Net team at NYU VIDA Lab
+- NYC Open Data Initiative
+- Professor Claudio Silva - CS-GY 9223
