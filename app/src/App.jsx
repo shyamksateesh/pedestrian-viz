@@ -1,15 +1,14 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { MapContainer, TileLayer, GeoJSON, ImageOverlay, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
-// --- MAP STATE MANAGER (Conditional Zoom) ---
+// --- MAP STATE MANAGER ---
 function MapController({ bounds, isAreaSelected, mapInitialized, setMapInitialized }) {
   const map = useMap();
 
   useEffect(() => {
     if (bounds && !mapInitialized) {
-        // Only fit bounds ONCE on initial load
         const padding = isAreaSelected ? [20, 20] : [150, 150];
         
         map.fitBounds(bounds, { 
@@ -21,7 +20,6 @@ function MapController({ bounds, isAreaSelected, mapInitialized, setMapInitializ
     }
   }, [bounds, map, isAreaSelected, mapInitialized, setMapInitialized]);
 
-  // Separate effect for handling selection changes (zoom in/out)
   useEffect(() => {
     if (mapInitialized && bounds) {
       const padding = isAreaSelected ? [20, 20] : [150, 150];
@@ -33,92 +31,94 @@ function MapController({ bounds, isAreaSelected, mapInitialized, setMapInitializ
         maxZoom: isAreaSelected ? 17 : 13
       });
     }
-  }, [isAreaSelected]); // Only trigger on selection change
+  }, [isAreaSelected]);
 
   return null;
 }
 
-// --- INTERACTION LAYER: Handles Hover, Double-Click, and Conditional Overlays ---
-function TileInteractionLayer({ bounds, metadata, currentYear, isAreaSelected, setIsAreaSelected, satelliteOpacity, currentNetworkData, getFeatureStyle, layers, isNetworkVisible }) {
+// --- MULTI-TILE INTERACTION LAYER ---
+function TileInteractionLayer({ availableTiles, activeTile, setActiveTile, currentYear, satelliteOpacity, currentNetworkData, getFeatureStyle, layers, isNetworkVisible }) {
     const map = useMap();
-    
-    // State to manage the hover highlight effect
-    const [isHovered, setIsHovered] = useState(false);
-    
+
+    // Create rectangles for ALL tiles
     useEffect(() => {
-        if (!bounds) return;
+        if (!availableTiles || availableTiles.length === 0) return;
 
-        // Create the invisible rectangle for interaction
-        const rect = L.rectangle(bounds, {
-            fillColor: '#667eea', 
-            fillOpacity: 0, 
-            weight: 0,
-            interactive: true,
-            pane: 'overlayPane'
-        }).addTo(map);
+        const tileRects = availableTiles.map(tile => {
+            const leafletBounds = [
+              [tile.bounds.south, tile.bounds.west],
+              [tile.bounds.north, tile.bounds.east]
+            ];
+            
+            const rect = L.rectangle(leafletBounds, {
+                fillColor: '#667eea', 
+                fillOpacity: 0, 
+                weight: 0,
+                interactive: true,
+                pane: 'overlayPane'
+            }).addTo(map);
 
-        // --- INTERACTION HANDLERS ---
-        const mouseoverHandler = () => { 
-            if (!isAreaSelected) {
-                rect.setStyle({ fillOpacity: 0.2 }); 
-                setIsHovered(true); 
-            }
-        };
-        const mouseoutHandler = () => { 
-            if (!isAreaSelected) {
-                rect.setStyle({ fillOpacity: 0 }); 
-                setIsHovered(false);
-            }
-        };
-        
-        rect.on('mouseover', mouseoverHandler);
-        rect.on('mouseout', mouseoutHandler);
-        
-        // --- DOUBLE-CLICK ACTIVATION ---
-        rect.on('dblclick', (e) => {
-            if (!isAreaSelected) {
-                L.DomEvent.stop(e); 
-                setIsAreaSelected(true);
-                rect.setStyle({ interactive: false }); // Disable after click
-            }
+            const mouseoverHandler = () => { 
+                if (!activeTile) {
+                    rect.setStyle({ fillOpacity: 0.2 });
+                }
+            };
+            const mouseoutHandler = () => { 
+                if (!activeTile) {
+                    rect.setStyle({ fillOpacity: 0 });
+                }
+            };
+            const dblclickHandler = (e) => {
+                if (!activeTile) {
+                    L.DomEvent.stop(e); 
+                    setActiveTile(tile.tile_id);
+                }
+            };
+
+            rect.on('mouseover', mouseoverHandler);
+            rect.on('mouseout', mouseoutHandler);
+            rect.on('dblclick', dblclickHandler);
+            
+            return rect;
         });
 
-        // Clean up
         return () => {
-            map.removeLayer(rect);
+            tileRects.forEach(rect => map.removeLayer(rect));
         };
-    }, [map, bounds, isAreaSelected, setIsAreaSelected]);
+    }, [map, availableTiles, activeTile, setActiveTile]);
 
-
-    // Only display the ImageOverlay and GeoJSON AFTER the area is selected
-    if (!isAreaSelected) {
+    // Render overlay only for active tile
+    if (!activeTile) {
         return null; 
     }
 
-    // Dynamic URL for the imagery
-    const tileId = metadata.tile_id;
+    const tileID = activeTile;
+    const activeTileData = availableTiles.find(t => t.tile_id === tileID);
+    
+    const bounds = [
+      [activeTileData.bounds.south, activeTileData.bounds.west],
+      [activeTileData.bounds.north, activeTileData.bounds.east]
+    ];
 
     return (
         <>
-            {/* Satellite Imagery (Only visible when selected) */}
             <ImageOverlay
-                url={`/data/tiles/${tileId}/imagery/${currentYear}.png`}
-                bounds={bounds}
+                url={`/data/tiles/${tileID}/imagery/${currentYear}.png`}
+                bounds={bounds} 
                 opacity={satelliteOpacity}
-                key={`imagery-${currentYear}`}
+                key={`img-${currentYear}-${tileID}`}
                 eventHandlers={{
                   error: (e) => {
                     console.warn(`⚠️  Imagery not available for ${currentYear}`);
                   }
                 }}
             />
-
-            {/* Network Data (Only visible when selected AND master toggle is on) */}
+            
             {currentNetworkData && isNetworkVisible && (
                 <GeoJSON
                     data={currentNetworkData}
                     style={getFeatureStyle}
-                    key={`network-${currentYear}-${JSON.stringify(layers)}`}
+                    key={`geojson-${currentYear}-${JSON.stringify(layers)}-${tileID}`}
                 />
             )}
         </>
@@ -129,8 +129,15 @@ function TileInteractionLayer({ bounds, metadata, currentYear, isAreaSelected, s
 export default function App() {
   const years = [2004, 2006, 2008, 2010, 2012, 2014, 2016, 2018, 2020, 2022, 2024];
   
+  const layerColors = {
+    sidewalk: '#4A90E2',
+    road: '#FF6B6B',
+    crosswalk: '#4ECDC4'
+  };
+
   // STATE
-  const [metadata, setMetadata] = useState(null);
+  const [availableTiles, setAvailableTiles] = useState(null);
+  const [activeTileID, setActiveTileID] = useState(null);
   const [currentYear, setCurrentYear] = useState(2024);
   const [allNetworkData, setAllNetworkData] = useState({});
   const [isLoading, setIsLoading] = useState(true);
@@ -142,75 +149,93 @@ export default function App() {
     crosswalk: true
   });
   const [isNetworkVisible, setIsNetworkVisible] = useState(true);
+  const [mapInitialized, setMapInitialized] = useState(false);
   
-  // Controls the selection/zoom view
-  const [isAreaSelected, setIsAreaSelected] = useState(false);
-  const [mapInitialized, setMapInitialized] = useState(false); 
+  const isAreaSelected = !!activeTileID;
+  const activeTileData = availableTiles ? availableTiles.find(t => t.tile_id === activeTileID) : null;
 
-  const layerColors = {
-    sidewalk: '#4A90E2',
-    road: '#FF6B6B',
-    crosswalk: '#4ECDC4'
-  };
+  // Calculate bounds
+  const currentBounds = useMemo(() => {
+    if (activeTileData) {
+        const b = activeTileData.bounds;
+        return [[b.south, b.west], [b.north, b.east]];
+    } else if (availableTiles && availableTiles.length > 0) {
+        // Use first tile bounds for initial view
+        const b = availableTiles[0].bounds;
+        return [[b.south, b.west], [b.north, b.east]];
+    }
+    return null;
+  }, [availableTiles, activeTileData]);
+  
+  const currentNetworkData = activeTileID ? allNetworkData[activeTileID]?.[currentYear] : null;
 
-  // LOAD METADATA
+  // LOAD TILES INDEX
   useEffect(() => {
-    fetch('/data/metadata.json')
+    fetch('/data/tiles_index.json')
       .then(response => response.json())
-      .then(data => {
-        setMetadata(data);
+      .then(tiles => {
+        setAvailableTiles(tiles);
+        console.log(`✅ Loaded ${tiles.length} regions`);
       })
       .catch(error => {
-        console.error('❌ Failed to load metadata:', error);
+        console.error('❌ Failed to load tiles index:', error);
+        setAvailableTiles([]);
         setIsLoading(false);
       });
-  }, []);
+  }, []); 
 
-  // LOAD ALL NETWORK DATA (HANDLES MISSING FILES)
+  // LOAD ALL NETWORK DATA FOR ALL TILES
   useEffect(() => {
-    if (!metadata) return;
+    if (!availableTiles || availableTiles.length === 0 || Object.keys(allNetworkData).length > 0) return;
 
-    const tileId = metadata.tile_id;
-    const dataPromises = years.map(year => {
-      const path = `/data/tiles/${tileId}/networks/${year}.geojson`;
-      return fetch(path)
-        .then(response => {
-          if (!response.ok) {
-            console.warn(`⚠️ GeoJSON not found for ${year} (this is OK)`);
-            return null;
-          }
-          return response.json();
-        })
-        .then(data => ({ year, data }))
-        .catch(error => {
-          console.warn(`⚠️ Failed to load ${year}:`, error.message);
-          return { year, data: null };
+    setIsLoading(true);
+    
+    const allTilePromises = availableTiles.map(tile => {
+        const tileID = tile.tile_id;
+        
+        const yearPromises = years.map(year => {
+            const dataPath = `/data/tiles/${tileID}/networks/${year}.geojson`;
+            return fetch(dataPath)
+                .then(response => response.ok ? response.json() : null)
+                .then(data => ({ year, data }))
+                .catch(() => null);
         });
+        
+        return Promise.all(yearPromises)
+            .then(results => {
+                const yearData = {};
+                results.forEach(result => {
+                    if (result && result.data) yearData[result.year] = result.data;
+                });
+                return { tileID, yearData };
+            });
     });
-
-    Promise.all(dataPromises).then(results => {
-      const networkData = {};
-      results.forEach(({ year, data }) => {
-        if (data) networkData[year] = data;
+    
+    Promise.all(allTilePromises)
+      .then(results => {
+        const globalData = {};
+        results.forEach(result => {
+            globalData[result.tileID] = result.yearData;
+        });
+        
+        setAllNetworkData(globalData);
+        setIsLoading(false);
+        console.log(`✅ Loaded data for ${results.length} regions`);
       });
-      setAllNetworkData(networkData);
-      setIsLoading(false);
-
-      const loaded = Object.keys(networkData).length;
-      const missing = years.length - loaded;
-      console.log(`✅ Loaded ${loaded} years of network data`);
-      if (missing > 0) {
-        console.log(`⚠️ ${missing} years missing (imagery may still be available)`);
-      }
-    });
-  }, [metadata, years]);
+      
+  }, [availableTiles, years]);
 
   // HANDLERS
   const handleGoBack = () => {
-      setIsAreaSelected(false);
+      setActiveTileID(null);
       setMapInitialized(false); 
   };
   
+  const setActiveTileAndZoom = (tileID) => {
+    setCurrentYear(2024);
+    setActiveTileID(tileID);
+  }
+
   const toggleNetworkVisible = (newValue) => {
     setIsNetworkVisible(newValue);
     setLayers({ sidewalk: newValue, road: newValue, crosswalk: newValue });
@@ -241,70 +266,63 @@ export default function App() {
   }, [layers, networkFillOpacity]);
 
   // LOADING STATE
-  if (isLoading || !metadata) {
-    return (
-      <div style={{
-        width: '100vw',
-        height: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: '#f0f0f0'
-      }}>
-        <div style={{
-          background: 'white',
-          padding: '20px 40px',
-          borderRadius: '12px',
-          boxShadow: '0 10px 40px rgba(0,0,0,0.2)',
-          fontSize: '16px',
-          fontWeight: '500'
-        }}>
-          Loading NYC Sidewalk Timeline...
-        </div>
-      </div>
-    );
+  if (isLoading || !currentBounds) {
+      return (
+          <div style={{
+            width: '100vw', 
+            height: '100vh', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            background: '#f0f0f0'
+          }}>
+              <div style={{
+                background: 'white',
+                padding: '20px 40px',
+                borderRadius: '12px',
+                boxShadow: '0 10px 40px rgba(0,0,0,0.2)',
+                fontSize: '16px',
+                fontWeight: '500'
+              }}>
+                {currentBounds ? 
+                  `Loading ${availableTiles.length} regions...` : 
+                  `Loading map...`}
+              </div>
+          </div>
+      );
   }
-
-  // CALCULATE BOUNDS
-  const bounds = [
-    [metadata.bounds.south, metadata.bounds.west],
-    [metadata.bounds.north, metadata.bounds.east]
-  ];
-
-  const currentNetworkData = allNetworkData[currentYear];
-  const baseTileOpacity = isAreaSelected ? 0 : 1;
 
   // MAIN RENDER
   return (
-    <div style={{
-      width: '100vw',
-      height: '100vh',
-      display: 'flex',
+    <div style={{ 
+      width: '100vw', 
+      height: '100vh', 
+      display: 'flex', 
       flexDirection: 'column',
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
     }}>
-      {/* Header - Only visible when unselected */}
+      {/* Header */}
       {!isAreaSelected && (
-          <div style={{
-            padding: '20px 30px',
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            color: 'white',
-            boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
-          }}>
-            <h1 style={{ margin: 0, fontSize: '28px', fontWeight: '600' }}>
-              NYC Sidewalk Time Machine
-            </h1>
-            <p style={{ margin: '5px 0 0 0', opacity: 0.9, fontSize: '14px' }}>
-              {metadata.area_name.replace('_', ' ').toUpperCase()} • Double-click the highlighted area to begin
-            </p>
-          </div>
+        <div style={{
+          padding: '20px 30px',
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          color: 'white',
+          boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+        }}>
+          <h1 style={{ margin: 0, fontSize: '28px', fontWeight: '600' }}>
+            NYC Sidewalk Time Machine
+          </h1>
+          <p style={{ margin: '5px 0 0 0', opacity: 0.9, fontSize: '14px' }}>
+            {availableTiles.length} regions available • Double-click any area to explore
+          </p>
+        </div>
       )}
-
+      
       {/* Map Container */}
       <div style={{ flex: 1, position: 'relative' }}>
         <MapContainer
-          center={[(bounds[0][0] + bounds[1][0]) / 2, (bounds[0][1] + bounds[1][1]) / 2]}
-          zoom={12}
+          center={[(currentBounds[0][0] + currentBounds[1][0]) / 2, (currentBounds[0][1] + currentBounds[1][1]) / 2]}
+          zoom={12} 
           style={{ width: '100%', height: '100%' }}
           zoomControl={true}
           scrollWheelZoom={true}
@@ -313,35 +331,31 @@ export default function App() {
           touchZoom={true}
         >
           <MapController 
-              bounds={bounds} 
-              isAreaSelected={isAreaSelected}
-              mapInitialized={mapInitialized}
-              setMapInitialized={setMapInitialized}
+            bounds={currentBounds} 
+            isAreaSelected={isAreaSelected} 
+            mapInitialized={mapInitialized}
+            setMapInitialized={setMapInitialized}
           />
-
-          {/* Base Map - Fades out when selected */}
+          
           <TileLayer
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             attribution='&copy; OpenStreetMap contributors'
-            opacity={baseTileOpacity}
+            opacity={isAreaSelected ? 0 : 1}
           />
-
-          {/* Interaction Layer (Handles hover/click and conditional data rendering) */}
+          
           <TileInteractionLayer
-              bounds={bounds}
-              metadata={metadata}
-              currentYear={currentYear}
-              isAreaSelected={isAreaSelected}
-              setIsAreaSelected={setIsAreaSelected}
-              satelliteOpacity={satelliteOpacity}
-              currentNetworkData={currentNetworkData}
-              getFeatureStyle={getFeatureStyle}
-              layers={layers}
-              isNetworkVisible={isNetworkVisible}
+            availableTiles={availableTiles}
+            activeTile={activeTileID}
+            setActiveTile={setActiveTileAndZoom}
+            currentYear={currentYear}
+            satelliteOpacity={satelliteOpacity}
+            currentNetworkData={currentNetworkData}
+            getFeatureStyle={getFeatureStyle}
+            layers={layers}
+            isNetworkVisible={isNetworkVisible}
           />
         </MapContainer>
         
-        {/* Go Back Button - Only visible when selected */}
         {isAreaSelected && (
             <button
                 onClick={handleGoBack}
@@ -364,14 +378,12 @@ export default function App() {
                     gap: '8px'
                 }}
             >
-                <span style={{ fontSize: '18px' }}>&#x2190;</span> Back to Full Map
+                <span style={{ fontSize: '18px' }}>&#x2190;</span> Back
             </button>
         )}
 
-        {/* Controls and Timeline - Only visible when selected */}
         {isAreaSelected && (
             <>
-                {/* Controls */}
                 <div style={{
                     position: 'absolute',
                     top: '20px',
@@ -388,7 +400,6 @@ export default function App() {
                         Layers
                     </h3>
 
-                    {/* Master Toggle */}
                     <div style={{ marginBottom: '15px', display: 'flex', alignItems: 'center', fontWeight: 'bold' }}>
                         <input
                             type="checkbox"
@@ -402,7 +413,6 @@ export default function App() {
                     </div>
                     <hr style={{ margin: '15px 0', border: 'none', borderTop: '1px solid #eee' }} />
 
-                    {/* Individual Layers */}
                     {Object.entries(layers).map(([name, enabled]) => (
                         <div key={name} style={{ marginBottom: '8px', display: 'flex', alignItems: 'center' }}>
                             <input
@@ -426,7 +436,6 @@ export default function App() {
 
                     <hr style={{ margin: '15px 0', border: 'none', borderTop: '1px solid #eee' }} />
 
-                    {/* Imagery Opacity */}
                     <h3 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600' }}>
                         Imagery Opacity
                     </h3>
@@ -445,7 +454,6 @@ export default function App() {
 
                     <hr style={{ margin: '15px 0', border: 'none', borderTop: '1px solid #eee' }} />
 
-                    {/* Network Opacity */}
                     <h3 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600' }}>
                         Network Opacity
                     </h3>
@@ -463,7 +471,6 @@ export default function App() {
                     </div>
                 </div>
 
-                {/* Timeline */}
                 <div style={{
                     position: 'absolute',
                     bottom: 0,
@@ -476,9 +483,9 @@ export default function App() {
                     color: '#333'
                 }}>
                     <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-                        <div style={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
+                        <div style={{ 
+                            display: 'flex', 
+                            justifyContent: 'space-between', 
                             alignItems: 'center',
                             marginBottom: '15px'
                         }}>
@@ -496,11 +503,10 @@ export default function App() {
                                 )}
                             </h2>
                             <div style={{ fontSize: '14px', color: '#666' }}>
-                                Slide to travel through time
+                                {activeTileData?.name}
                             </div>
                         </div>
-
-                        {/* Slider */}
+                        
                         <input
                             type="range"
                             min={0}
@@ -517,15 +523,14 @@ export default function App() {
                                 background: `linear-gradient(to right, #667eea ${(years.indexOf(currentYear) / (years.length - 1)) * 100}%, #e0e0e0 ${(years.indexOf(currentYear) / (years.length - 1)) * 100}%)`
                             }}
                         />
-
-                        {/* Year Markers */}
-                        <div style={{
-                            display: 'flex',
+                        
+                        <div style={{ 
+                            display: 'flex', 
                             justifyContent: 'space-between',
                             marginTop: '10px'
                         }}>
                             {years.map(year => (
-                                <div
+                                <div 
                                     key={year}
                                     onClick={() => setCurrentYear(year)}
                                     style={{
