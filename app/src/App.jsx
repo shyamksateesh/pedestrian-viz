@@ -9,6 +9,7 @@ import {
   generateInsights 
 } from './utils/statsCalculator';
 import StatisticsPanel from './components/StatisticsPanel_D3';
+import { THEMES } from './utils/theme';
 
 // ============================================================================
 // MOVE CONSTANTS OUTSIDE COMPONENT - CRITICAL FIX
@@ -22,7 +23,7 @@ const DEFAULT_LAYER_COLORS = {
 };
 
 // --- DRAGGABLE TOOLTIP COMPONENT ---
-function DraggableTooltip({ hoveredTileData, parseTileName, position, setPosition }) {
+function DraggableTooltip({ hoveredTileData, parseTileName, position, setPosition, theme }) {
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const tooltipRef = useRef(null);
@@ -82,12 +83,13 @@ function DraggableTooltip({ hoveredTileData, parseTileName, position, setPositio
         position: 'fixed',
         left: `${position.x}px`,
         top: `${position.y}px`,
-        background: 'rgba(255, 255, 255, 0.98)',
+        background: theme.tooltipBg,
         padding: '20px 30px',
         borderRadius: '16px',
-        boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
+        boxShadow: theme.shadowLg,
         zIndex: 10000,
-        border: '2px solid #667eea',
+        border: `2px solid ${theme.primary}`,
+        transition: 'all 0.3s ease',
         minWidth: '250px',
         textAlign: 'center',
         cursor: isDragging ? 'grabbing' : 'grab',
@@ -97,7 +99,7 @@ function DraggableTooltip({ hoveredTileData, parseTileName, position, setPositio
       <div style={{ 
         fontSize: '24px', 
         fontWeight: '700', 
-        color: '#667eea',
+        color: theme.primary,
         marginBottom: '8px'
       }}>
         {hoveredTileData.tile_id.replace('manhattan_tile_', 'Tile ')}
@@ -136,7 +138,7 @@ function DraggableTooltip({ hoveredTileData, parseTileName, position, setPositio
 }
 
 // --- COLOR PICKER COMPONENT ---
-function ColorPicker({ isOpen, onClose, currentColor, onColorChange, layerName }) {
+function ColorPicker({ isOpen, onClose, currentColor, onColorChange, layerName, theme }) {
   const pickerRef = useRef(null);
 
   useEffect(() => {
@@ -172,10 +174,11 @@ function ColorPicker({ isOpen, onClose, currentColor, onColorChange, layerName }
         top: '100%',
         left: '0',
         marginTop: '8px',
-        background: 'white',
+        background: theme.surface,
         borderRadius: '8px',
         padding: '12px',
-        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+        boxShadow: theme.shadowMd,
+        transition: 'all 0.3s ease',
         zIndex: 10001,
         width: '200px'
       }}
@@ -426,6 +429,7 @@ export default function App() {
   const [mapInitialized, setMapInitialized] = useState(false);
   const [isControlsOpen, setIsControlsOpen] = useState(false);
   const [isStatsOpen, setIsStatsOpen] = useState(true); // Stats open by default
+  const [isDarkMode, setIsDarkMode] = useState(false);
 
   // STATISTICS STATE
   const [tileStats, setTileStats] = useState(null);
@@ -436,6 +440,9 @@ export default function App() {
   const [tooltipPosition, setTooltipPosition] = useState(() => {
     return { x: 20, y: window.innerHeight - 200 };
   });
+  
+  // Get current theme
+  const theme = isDarkMode ? THEMES.dark : THEMES.light;
   
   const isAreaSelected = !!activeTileID;
   const activeTileData = availableTiles ? availableTiles.find(t => t.tile_id === activeTileID) : null;
@@ -655,15 +662,18 @@ export default function App() {
             display: 'flex', 
             alignItems: 'center', 
             justifyContent: 'center',
-            background: '#f0f0f0'
+            background: theme.background,
+            transition: 'all 0.3s ease'
           }}>
               <div style={{
-                background: 'white',
+                background: theme.surface,
                 padding: '20px 40px',
                 borderRadius: '12px',
-                boxShadow: '0 10px 40px rgba(0,0,0,0.2)',
+                boxShadow: theme.shadowLg,
                 fontSize: '16px',
-                fontWeight: '500'
+                fontWeight: '500',
+                color: theme.textPrimary,
+                transition: 'all 0.3s ease'
               }}>
                 {availableTiles ? 
                   `Loading ${availableTiles.length} regions...` : 
@@ -686,9 +696,10 @@ export default function App() {
       {!isAreaSelected && (
         <div style={{
           padding: '20px 30px',
-          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          background: theme.headerBg,
           color: 'white',
-          boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+          boxShadow: theme.shadowMd,
+          transition: 'all 0.3s ease',
         }}>
           <h1 style={{ margin: 0, fontSize: '28px', fontWeight: '600' }}>
             NYC Sidewalk Time Machine
@@ -717,6 +728,7 @@ export default function App() {
           parseTileName={parseTileName}
           position={tooltipPosition}
           setPosition={setTooltipPosition}
+          theme={theme}
         />
       )}
       
@@ -771,11 +783,12 @@ export default function App() {
                     left: '20px',
                     zIndex: 1000,
                     padding: '10px 15px',
-                    background: 'white',
-                    color: '#667eea',
+                    background: theme.surface,
+                    color: theme.primary,
                     border: 'none',
                     borderRadius: '8px',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                    boxShadow: theme.shadowMd,
+                    transition: 'all 0.3s ease',
                     cursor: 'pointer',
                     fontSize: '14px',
                     fontWeight: '600',
@@ -808,8 +821,8 @@ export default function App() {
                     style={{
                         width: '44px',
                         height: '44px',
-                        background: isControlsOpen ? '#667eea' : 'white',
-                        color: isControlsOpen ? 'white' : '#667eea',
+                        background: isControlsOpen ? theme.primary : theme.surface,
+                        color: isControlsOpen ? 'white' : theme.primary,
                         border: 'none',
                         borderRadius: '8px',
                         boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
@@ -834,8 +847,8 @@ export default function App() {
                     style={{
                         width: '44px',
                         height: '44px',
-                        background: isStatsOpen ? '#667eea' : 'white',
-                        color: isStatsOpen ? 'white' : '#667eea',
+                        background: isStatsOpen ? theme.primary : theme.surface,
+                        color: isStatsOpen ? 'white' : theme.primary,
                         border: 'none',
                         borderRadius: '8px',
                         boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
@@ -864,16 +877,47 @@ export default function App() {
                 maxHeight: 'calc(100vh - 250px)',
             }}>
                 <div style={{
-                    background: 'white',
+                    background: theme.surface,
                     borderRadius: '12px',
                     padding: '15px 20px',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                    boxShadow: theme.shadowMd,
                     width: '220px',
                     maxHeight: '100%',
                     overflowY: 'auto',
-                    color: '#333'
+                    color: theme.textPrimary,
+                    transition: 'all 0.3s ease'
                 }}>
-                    <h3 style={{ margin: '0 0 12px 0', fontSize: '14px', fontWeight: '600' }}>
+                    {/* Dark Mode Toggle */}
+                    <div style={{ marginBottom: '20px', paddingBottom: '15px', borderBottom: `1px solid ${theme.divider}` }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontSize: '18px' }}>{isDarkMode ? '🌙' : '☀️'}</span>
+                          <span style={{ fontSize: '13px', fontWeight: '600' }}>
+                            {isDarkMode ? 'Dark Mode' : 'Light Mode'}
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => setIsDarkMode(!isDarkMode)}
+                          style={{
+                            background: isDarkMode ? theme.primary : theme.buttonHover,
+                            color: isDarkMode ? 'white' : theme.textPrimary,
+                            border: `1px solid ${theme.border}`,
+                            borderRadius: '16px',
+                            padding: '4px 12px',
+                            fontSize: '11px',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.5px'
+                          }}
+                        >
+                          {isDarkMode ? 'ON' : 'OFF'}
+                        </button>
+                      </div>
+                    </div>
+
+                    <h3 style={{ margin: '0 0 12px 0', fontSize: '14px', fontWeight: '600', color: theme.textPrimary }}>
                         Layers
                     </h3>
 
@@ -987,12 +1031,13 @@ export default function App() {
                 maxHeight: 'calc(100vh - 250px)',
             }}>
                 <div style={{
-                    background: 'white',
+                    background: theme.surface,
                     borderRadius: '12px',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                    boxShadow: theme.shadowMd,
                     width: '650px',
                     maxHeight: '100%',
-                    overflowY: 'hidden'
+                    overflowY: 'hidden',
+                    transition: 'all 0.3s ease'
                 }}>
                     <StatisticsPanel
                         yearlyStats={tileStats}
@@ -1001,6 +1046,7 @@ export default function App() {
                         insights={insights}
                         currentYear={currentYear}
                         years={YEARS}
+                        theme={theme}
                     />
                 </div>
             </div>
@@ -1013,11 +1059,12 @@ export default function App() {
                     bottom: 0,
                     width: '100%',
                     padding: '25px 30px',
-                    background: 'white',
-                    borderTop: '1px solid #e0e0e0',
-                    boxShadow: '0 -4px 12px rgba(0,0,0,0.08)',
+                    background: theme.surface,
+                    borderTop: `1px solid ${theme.border}`,
+                    boxShadow: theme.shadowMd,
                     zIndex: 1000,
-                    color: '#333'
+                    color: theme.textPrimary,
+                    transition: 'all 0.3s ease'
                 }}>
                     <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
                         <div style={{ 
@@ -1026,7 +1073,7 @@ export default function App() {
                             alignItems: 'center',
                             marginBottom: '15px'
                         }}>
-                            <h2 style={{ margin: 0, fontSize: '32px', fontWeight: '700', color: '#667eea' }}>
+                            <h2 style={{ margin: 0, fontSize: '32px', fontWeight: '700', color: theme.primary }}>
                                 {currentYear}
                                 {!currentNetworkData && (
                                   <span style={{ 
@@ -1039,7 +1086,7 @@ export default function App() {
                                   </span>
                                 )}
                             </h2>
-                            <div style={{ fontSize: '14px', color: '#666' }}>
+                            <div style={{ fontSize: '14px', color: theme.textSecondary }}>
                                 {activeTileData?.name}
                             </div>
                         </div>
@@ -1072,7 +1119,7 @@ export default function App() {
                                     onClick={() => setCurrentYear(year)}
                                     style={{
                                         fontSize: '12px',
-                                        color: year === currentYear ? '#667eea' : '#999',
+                                        color: year === currentYear ? theme.primary : theme.textTertiary,
                                         fontWeight: year === currentYear ? '600' : '400',
                                         cursor: 'pointer',
                                         transition: 'all 0.2s'

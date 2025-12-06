@@ -8,9 +8,9 @@ const COLORS = {
 };
 
 // ============================================================================
-// TEMPORAL TREND LINE CHART - WITH ANIMATIONS ON TAB SWITCH
+// TEMPORAL TREND LINE CHART - DARK MODE AWARE
 // ============================================================================
-export function TemporalTrendChart({ yearlyStats, years, width = 600, height = 300 }) {
+export function TemporalTrendChart({ yearlyStats, years, width = 600, height = 300, theme }) {
   const svgRef = useRef();
 
   useEffect(() => {
@@ -40,27 +40,35 @@ export function TemporalTrendChart({ yearlyStats, years, width = 600, height = 3
     const yMax = d3.max(chartData, d => Math.max(d.sidewalk, d.road, d.crosswalk)) * 1.1;
     const yScale = d3.scaleLinear().domain([0, yMax || 1]).range([innerHeight, 0]);
 
-    // Grid
+    // Grid (theme-aware)
     g.append('g')
       .attr('class', 'grid')
       .attr('opacity', 0.1)
-      .call(d3.axisLeft(yScale).tickSize(-innerWidth).tickFormat(''));
+      .call(d3.axisLeft(yScale).tickSize(-innerWidth).tickFormat(''))
+      .selectAll('line')
+      .attr('stroke', theme.gridLine);
 
-    // Axes
+    // Axes (theme-aware text)
     g.append('g')
       .attr('transform', `translate(0,${innerHeight})`)
       .call(d3.axisBottom(xScale).tickFormat(d3.format('d')))
-      .style('font-size', '12px');
+      .style('font-size', '12px')
+      .selectAll('text')
+      .attr('fill', theme.axisText);
 
     const yAxis = g.append('g')
       .call(d3.axisLeft(yScale))
       .style('font-size', '12px');
+    
+    yAxis.selectAll('text').attr('fill', theme.axisText);
+    yAxis.selectAll('line').attr('stroke', theme.border);
+    yAxis.selectAll('path').attr('stroke', theme.border);
 
     yAxis.append('text')
       .attr('transform', 'rotate(-90)')
       .attr('y', -45)
       .attr('x', -innerHeight / 2)
-      .attr('fill', '#666')
+      .attr('fill', theme.textSecondary)
       .attr('font-size', '13px')
       .attr('text-anchor', 'middle')
       .text('Length (km)');
@@ -81,7 +89,6 @@ export function TemporalTrendChart({ yearlyStats, years, width = 600, height = 3
         .attr('stroke-width', 3)
         .attr('d', lineGen);
 
-      // Animate line drawing
       const totalLength = path.node().getTotalLength();
       path
         .attr('stroke-dasharray', `${totalLength} ${totalLength}`)
@@ -92,7 +99,7 @@ export function TemporalTrendChart({ yearlyStats, years, width = 600, height = 3
         .attr('stroke-dashoffset', 0);
     });
 
-    // Interactive points with STAGGERED animation
+    // Interactive points
     Object.keys(COLORS).forEach((type, typeIndex) => {
       g.selectAll(`.dot-${type}`)
         .data(chartData)
@@ -101,24 +108,20 @@ export function TemporalTrendChart({ yearlyStats, years, width = 600, height = 3
         .attr('class', `dot-${type}`)
         .attr('cx', d => xScale(d.year))
         .attr('cy', d => yScale(d[type]))
-        .attr('r', 0) // Start at 0
+        .attr('r', 0)
         .attr('fill', COLORS[type])
-        .attr('stroke', 'white')
+        .attr('stroke', theme.surface)
         .attr('stroke-width', 2)
         .style('cursor', 'pointer')
         .transition()
         .duration(400)
-        .delay((d, i) => 1000 + typeIndex * 200 + i * 50) // Stagger animation
+        .delay((d, i) => 1000 + typeIndex * 200 + i * 50)
         .ease(d3.easeBackOut)
         .attr('r', 5)
         .on('end', function() {
-          // Add hover effects after animation
           d3.select(this)
             .on('mouseover', function(event, d) {
-              d3.select(this)
-                .transition()
-                .duration(150)
-                .attr('r', 8);
+              d3.select(this).transition().duration(150).attr('r', 8);
               
               const tooltip = g.append('g').attr('class', 'tooltip')
                 .attr('transform', `translate(${xScale(d.year)},${yScale(d[type]) - 20})`);
@@ -129,7 +132,7 @@ export function TemporalTrendChart({ yearlyStats, years, width = 600, height = 3
               
               const bbox = tooltip.append('text')
                 .attr('text-anchor', 'middle')
-                .attr('fill', 'white')
+                .attr('fill', theme.tooltipText)
                 .attr('font-size', '11px')
                 .attr('y', -12)
                 .text(text)
@@ -140,20 +143,17 @@ export function TemporalTrendChart({ yearlyStats, years, width = 600, height = 3
                 .attr('y', bbox.y - 2)
                 .attr('width', bbox.width + 10)
                 .attr('height', bbox.height + 4)
-                .attr('fill', 'rgba(0,0,0,0.85)')
+                .attr('fill', theme.tooltipBg)
                 .attr('rx', 4);
             })
             .on('mouseout', function() {
-              d3.select(this)
-                .transition()
-                .duration(150)
-                .attr('r', 5);
+              d3.select(this).transition().duration(150).attr('r', 5);
               g.selectAll('.tooltip').remove();
             });
         });
     });
 
-    // Legend with fade-in
+    // Legend
     const legend = g.append('g')
       .attr('transform', `translate(${innerWidth + 10}, 0)`)
       .attr('opacity', 0);
@@ -169,29 +169,32 @@ export function TemporalTrendChart({ yearlyStats, years, width = 600, height = 3
       legendRow.append('circle')
         .attr('cx', 15).attr('cy', 0).attr('r', 5)
         .attr('fill', color)
-        .attr('stroke', 'white').attr('stroke-width', 2);
+        .attr('stroke', theme.surface).attr('stroke-width', 2);
 
       legendRow.append('text')
         .attr('x', 35).attr('y', 4)
         .attr('font-size', '12px')
-        .attr('fill', '#666')
+        .attr('fill', theme.textSecondary)
         .text(type.charAt(0).toUpperCase() + type.slice(1));
     });
 
-    legend.transition()
-      .duration(500)
-      .delay(1800)
-      .attr('opacity', 1);
+    legend.transition().duration(500).delay(1800).attr('opacity', 1);
 
-  }, [yearlyStats, years, width, height]);
+  }, [yearlyStats, years, width, height, theme]);
 
   return (
-    <div style={{ background: 'white', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>
-      <h3 style={{ margin: '0 0 15px 0', fontSize: '16px', fontWeight: '600' }}>
+    <div style={{ 
+      background: theme.chartBackground, 
+      padding: '20px', 
+      borderRadius: '12px', 
+      boxShadow: theme.shadowSm,
+      transition: 'all 0.3s ease'
+    }}>
+      <h3 style={{ margin: '0 0 15px 0', fontSize: '16px', fontWeight: '600', color: theme.textPrimary }}>
         📈 Infrastructure Growth Over Time
       </h3>
       <svg ref={svgRef} width={width} height={height} />
-      <div style={{ fontSize: '11px', color: '#999', marginTop: '10px', fontStyle: 'italic' }}>
+      <div style={{ fontSize: '11px', color: theme.textTertiary, marginTop: '10px', fontStyle: 'italic' }}>
         * Crosswalk counts scaled (÷10) for visualization. Hover over points for exact values.
       </div>
     </div>
@@ -199,9 +202,9 @@ export function TemporalTrendChart({ yearlyStats, years, width = 600, height = 3
 }
 
 // ============================================================================
-// COMPARATIVE BAR CHART - WITH ANIMATIONS AND CLEAR HEADING
+// COMPARATIVE BAR CHART - DARK MODE AWARE
 // ============================================================================
-export function ComparativeBarChart({ comparativeStats, width = 600, height = 300 }) {
+export function ComparativeBarChart({ comparativeStats, width = 600, height = 300, theme }) {
   const svgRef = useRef();
 
   useEffect(() => {
@@ -216,7 +219,6 @@ export function ComparativeBarChart({ comparativeStats, width = 600, height = 30
 
     const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
 
-    // Scales
     const xScale = d3.scaleBand()
       .domain(comparativeStats.map(d => d.year))
       .range([0, innerWidth])
@@ -226,24 +228,33 @@ export function ComparativeBarChart({ comparativeStats, width = 600, height = 30
       .domain([0, d3.max(comparativeStats, d => d.sidewalkToRoadRatio) * 1.1])
       .range([innerHeight, 0]);
 
-    // Axes
-    g.append('g')
+    // Axes (theme-aware)
+    const xAxis = g.append('g')
       .attr('transform', `translate(0,${innerHeight})`)
       .call(d3.axisBottom(xScale))
-      .style('font-size', '12px')
-      .selectAll('text')
+      .style('font-size', '12px');
+    
+    xAxis.selectAll('text')
       .attr('transform', 'rotate(-45)')
-      .style('text-anchor', 'end');
+      .style('text-anchor', 'end')
+      .attr('fill', theme.axisText);
+    
+    xAxis.selectAll('line').attr('stroke', theme.border);
+    xAxis.selectAll('path').attr('stroke', theme.border);
 
-    g.append('g')
+    const yAxis = g.append('g')
       .call(d3.axisLeft(yScale).ticks(5))
       .style('font-size', '12px');
+    
+    yAxis.selectAll('text').attr('fill', theme.axisText);
+    yAxis.selectAll('line').attr('stroke', theme.border);
+    yAxis.selectAll('path').attr('stroke', theme.border);
 
-    g.append('text')
+    yAxis.append('text')
       .attr('transform', 'rotate(-90)')
       .attr('y', -45)
       .attr('x', -innerHeight / 2)
-      .attr('fill', '#666')
+      .attr('fill', theme.textSecondary)
       .attr('font-size', '13px')
       .attr('text-anchor', 'middle')
       .text('Ratio');
@@ -255,20 +266,19 @@ export function ComparativeBarChart({ comparativeStats, width = 600, height = 30
       .append('rect')
       .attr('class', 'bar')
       .attr('x', d => xScale(d.year))
-      .attr('y', innerHeight) // Start from bottom
+      .attr('y', innerHeight)
       .attr('width', xScale.bandwidth())
-      .attr('height', 0) // Start with 0 height
+      .attr('height', 0)
       .attr('fill', COLORS.sidewalk)
       .attr('rx', 4)
       .style('cursor', 'pointer')
       .transition()
       .duration(800)
-      .delay((d, i) => i * 80) // Stagger animation
+      .delay((d, i) => i * 80)
       .ease(d3.easeCubicOut)
       .attr('y', d => yScale(d.sidewalkToRoadRatio))
       .attr('height', d => innerHeight - yScale(d.sidewalkToRoadRatio))
       .on('end', function() {
-        // Add hover effects after animation
         d3.select(this)
           .on('mouseover', function(event, d) {
             d3.select(this)
@@ -283,7 +293,7 @@ export function ComparativeBarChart({ comparativeStats, width = 600, height = 30
               .attr('text-anchor', 'middle')
               .attr('font-size', '12px')
               .attr('font-weight', '600')
-              .attr('fill', '#333')
+              .attr('fill', theme.textPrimary)
               .text(d.sidewalkToRoadRatio.toFixed(2))
               .attr('opacity', 0)
               .transition()
@@ -299,28 +309,34 @@ export function ComparativeBarChart({ comparativeStats, width = 600, height = 30
           });
       });
 
-  }, [comparativeStats, width, height]);
+  }, [comparativeStats, width, height, theme]);
 
   return (
-    <div style={{ background: 'white', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>
+    <div style={{ 
+      background: theme.chartBackground, 
+      padding: '20px', 
+      borderRadius: '12px', 
+      boxShadow: theme.shadowSm,
+      transition: 'all 0.3s ease'
+    }}>
       <h3 style={{ 
         margin: '0 0 5px 0', 
         fontSize: '16px', 
         fontWeight: '600',
-        color: '#333'
+        color: theme.textPrimary
       }}>
         📊 Pedestrian-Friendliness Score
       </h3>
       <p style={{ 
         margin: '0 0 15px 0', 
         fontSize: '13px', 
-        color: '#666',
+        color: theme.textSecondary,
         fontStyle: 'italic'
       }}>
         Sidewalk to Road Ratio — Higher is more walkable
       </p>
       <svg ref={svgRef} width={width} height={height} />
-      <div style={{ fontSize: '11px', color: '#999', marginTop: '10px' }}>
+      <div style={{ fontSize: '11px', color: theme.textTertiary, marginTop: '10px' }}>
         Hover over bars for exact ratios. Values &gt;1.0 indicate excellent pedestrian infrastructure.
       </div>
     </div>
@@ -328,9 +344,9 @@ export function ComparativeBarChart({ comparativeStats, width = 600, height = 30
 }
 
 // ============================================================================
-// RADIAL CHART - WITH POP-IN ANIMATION
+// RADIAL CHART - DARK MODE AWARE
 // ============================================================================
-export function InfrastructureRadial({ currentStats, size = 200 }) {
+export function InfrastructureRadial({ currentStats, size = 200, theme }) {
   const svgRef = useRef();
 
   useEffect(() => {
@@ -356,7 +372,7 @@ export function InfrastructureRadial({ currentStats, size = 200 }) {
       g.append('text')
         .attr('text-anchor', 'middle')
         .attr('font-size', '14px')
-        .attr('fill', '#999')
+        .attr('fill', theme.textTertiary)
         .text('No data');
       return;
     }
@@ -365,18 +381,16 @@ export function InfrastructureRadial({ currentStats, size = 200 }) {
     const arc = d3.arc().innerRadius(innerRadius).outerRadius(radius - 10);
     const arcHover = d3.arc().innerRadius(innerRadius).outerRadius(radius - 5);
 
-    // ANIMATED arcs
     const arcs = g.selectAll('.arc')
       .data(pie(metrics))
       .enter()
       .append('path')
       .attr('fill', d => d.data.color)
-      .attr('stroke', 'white')
+      .attr('stroke', theme.surface)
       .attr('stroke-width', 3)
       .style('cursor', 'pointer')
-      .each(function(d) { this._current = { startAngle: 0, endAngle: 0 }; }); // Store initial angle
+      .each(function(d) { this._current = { startAngle: 0, endAngle: 0 }; });
 
-    // Animate arcs
     arcs.transition()
       .duration(1000)
       .delay((d, i) => i * 150)
@@ -387,23 +401,15 @@ export function InfrastructureRadial({ currentStats, size = 200 }) {
         return t => arc(interpolate(t));
       })
       .on('end', function() {
-        // Add hover after animation
         d3.select(this)
           .on('mouseover', function() {
-            d3.select(this)
-              .transition()
-              .duration(200)
-              .attr('d', arcHover);
+            d3.select(this).transition().duration(200).attr('d', arcHover);
           })
           .on('mouseout', function() {
-            d3.select(this)
-              .transition()
-              .duration(200)
-              .attr('d', arc);
+            d3.select(this).transition().duration(200).attr('d', arc);
           });
       });
 
-    // Center text with fade-in
     const centerText = g.append('g').attr('opacity', 0);
 
     centerText.append('text')
@@ -411,32 +417,30 @@ export function InfrastructureRadial({ currentStats, size = 200 }) {
       .attr('dy', '-0.5em')
       .attr('font-size', '24px')
       .attr('font-weight', '700')
-      .attr('fill', '#333')
+      .attr('fill', theme.textPrimary)
       .text(total.toFixed(1));
 
     centerText.append('text')
       .attr('text-anchor', 'middle')
       .attr('dy', '1.2em')
       .attr('font-size', '12px')
-      .attr('fill', '#999')
+      .attr('fill', theme.textTertiary)
       .text('Total km');
 
-    centerText.transition()
-      .duration(500)
-      .delay(800)
-      .attr('opacity', 1);
+    centerText.transition().duration(500).delay(800).attr('opacity', 1);
 
-  }, [currentStats, size]);
+  }, [currentStats, size, theme]);
 
   return (
     <div style={{ 
-      background: 'white', 
+      background: theme.chartBackground, 
       padding: '20px', 
       borderRadius: '12px', 
-      boxShadow: '0 2px 8px rgba(0,0,0,0.08)', 
+      boxShadow: theme.shadowSm, 
       display: 'flex', 
       justifyContent: 'center', 
-      alignItems: 'center' 
+      alignItems: 'center',
+      transition: 'all 0.3s ease'
     }}>
       <svg ref={svgRef} width={size} height={size} style={{ display: 'block' }} />
     </div>
@@ -444,7 +448,7 @@ export function InfrastructureRadial({ currentStats, size = 200 }) {
 }
 
 // ============================================================================
-// STATISTICS PANEL - WITH TAB ANIMATION KEY
+// STATISTICS PANEL - DARK MODE AWARE
 // ============================================================================
 export default function StatisticsPanel({ 
   yearlyStats, 
@@ -452,20 +456,20 @@ export default function StatisticsPanel({
   comparativeStats,
   insights,
   currentYear,
-  years 
+  years,
+  theme
 }) {
   const [activeTab, setActiveTab] = useState('overview');
-  const [tabKey, setTabKey] = useState(0); // Force re-render on tab change
+  const [tabKey, setTabKey] = useState(0);
 
-  // Force re-animation when tab changes
   const handleTabChange = (newTab) => {
     setActiveTab(newTab);
-    setTabKey(prev => prev + 1); // Increment key to force re-mount
+    setTabKey(prev => prev + 1);
   };
 
   if (!yearlyStats || Object.keys(yearlyStats).length === 0) {
     return (
-      <div style={{ padding: '40px', textAlign: 'center', color: '#999' }}>
+      <div style={{ padding: '40px', textAlign: 'center', color: theme.textTertiary }}>
         <div style={{ fontSize: '48px', marginBottom: '15px' }}>📊</div>
         <div style={{ fontSize: '16px', fontWeight: '500' }}>No statistics available</div>
         <div style={{ fontSize: '13px', marginTop: '8px' }}>Select a tile to view analytics</div>
@@ -480,15 +484,17 @@ export default function StatisticsPanel({
       height: '100%', 
       display: 'flex', 
       flexDirection: 'column',
-      background: '#f8f9fa'
+      background: theme.chartSurface,
+      transition: 'all 0.3s ease'
     }}>
       {/* Tabs */}
       <div style={{ 
         display: 'flex', 
-        borderBottom: '2px solid #e0e0e0',
-        background: 'white',
+        borderBottom: `2px solid ${theme.border}`,
+        background: theme.surface,
         padding: '0 15px',
-        gap: '5px'
+        gap: '5px',
+        transition: 'all 0.3s ease'
       }}>
         {[
           { id: 'overview', label: '📊', title: 'Overview' },
@@ -501,8 +507,8 @@ export default function StatisticsPanel({
             style={{
               padding: '12px 16px',
               border: 'none',
-              background: activeTab === tab.id ? '#667eea' : 'transparent',
-              color: activeTab === tab.id ? 'white' : '#666',
+              background: activeTab === tab.id ? theme.primary : 'transparent',
+              color: activeTab === tab.id ? 'white' : theme.textSecondary,
               cursor: 'pointer',
               fontWeight: activeTab === tab.id ? '600' : '400',
               fontSize: '13px',
@@ -523,13 +529,19 @@ export default function StatisticsPanel({
       {/* Content */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '15px' }}>
         {activeTab === 'overview' && (
-          <OverviewTab key={`overview-${tabKey}`} currentStats={currentStats} temporalStats={temporalStats} currentYear={currentYear} />
+          <OverviewTab 
+            key={`overview-${tabKey}`} 
+            currentStats={currentStats} 
+            temporalStats={temporalStats} 
+            currentYear={currentYear}
+            theme={theme}
+          />
         )}
         {activeTab === 'trends' && (
-          <TrendsTab key={`trends-${tabKey}`} yearlyStats={yearlyStats} years={years} />
+          <TrendsTab key={`trends-${tabKey}`} yearlyStats={yearlyStats} years={years} theme={theme} />
         )}
         {activeTab === 'compare' && (
-          <CompareTab key={`compare-${tabKey}`} comparativeStats={comparativeStats} />
+          <CompareTab key={`compare-${tabKey}`} comparativeStats={comparativeStats} theme={theme} />
         )}
       </div>
     </div>
@@ -537,9 +549,11 @@ export default function StatisticsPanel({
 }
 
 // Tab Components
-function OverviewTab({ currentStats, temporalStats, currentYear }) {
+function OverviewTab({ currentStats, temporalStats, currentYear, theme }) {
   if (!currentStats) {
-    return <div style={{ padding: '20px', textAlign: 'center', color: '#666' }}>No data for {currentYear}</div>;
+    return <div style={{ padding: '20px', textAlign: 'center', color: theme.textSecondary }}>
+      No data for {currentYear}
+    </div>;
   }
 
   const metrics = [
@@ -580,22 +594,23 @@ function OverviewTab({ currentStats, temporalStats, currentYear }) {
           <div 
             key={metric.type} 
             style={{
-              background: 'white',
+              background: theme.cardBg,
               padding: '16px',
               borderRadius: '10px',
-              boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
+              boxShadow: theme.shadowSm,
               borderLeft: `4px solid ${COLORS[metric.type]}`,
               opacity: 0,
-              animation: `fadeInUp 0.5s ease-out ${i * 0.1}s forwards`
+              animation: `fadeInUp 0.5s ease-out ${i * 0.1}s forwards`,
+              transition: 'all 0.3s ease'
             }}
           >
             <div style={{ fontSize: '24px', marginBottom: '6px' }}>{metric.icon}</div>
-            <div style={{ fontSize: '12px', color: '#999', marginBottom: '6px', fontWeight: '500' }}>
+            <div style={{ fontSize: '12px', color: theme.textTertiary, marginBottom: '6px', fontWeight: '500' }}>
               {metric.label}
             </div>
-            <div style={{ fontSize: '24px', fontWeight: '700', color: '#333' }}>
+            <div style={{ fontSize: '24px', fontWeight: '700', color: theme.textPrimary }}>
               {metric.value}
-              <span style={{ fontSize: '12px', color: '#999', marginLeft: '3px' }}>
+              <span style={{ fontSize: '12px', color: theme.textTertiary, marginLeft: '3px' }}>
                 {metric.unit}
               </span>
             </div>
@@ -613,7 +628,7 @@ function OverviewTab({ currentStats, temporalStats, currentYear }) {
         ))}
       </div>
 
-      <InfrastructureRadial currentStats={currentStats} size={200} />
+      <InfrastructureRadial currentStats={currentStats} size={200} theme={theme} />
       
       <style>{`
         @keyframes fadeInUp {
@@ -631,22 +646,24 @@ function OverviewTab({ currentStats, temporalStats, currentYear }) {
   );
 }
 
-function TrendsTab({ yearlyStats, years }) {
+function TrendsTab({ yearlyStats, years, theme }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-      <TemporalTrendChart yearlyStats={yearlyStats} years={years} width={600} height={300} />
+      <TemporalTrendChart yearlyStats={yearlyStats} years={years} width={600} height={300} theme={theme} />
     </div>
   );
 }
 
-function CompareTab({ comparativeStats }) {
+function CompareTab({ comparativeStats, theme }) {
   if (!comparativeStats || comparativeStats.length === 0) {
-    return <div style={{ padding: '20px', textAlign: 'center', color: '#666' }}>No comparative data available</div>;
+    return <div style={{ padding: '20px', textAlign: 'center', color: theme.textSecondary }}>
+      No comparative data available
+    </div>;
   }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-      <ComparativeBarChart comparativeStats={comparativeStats} width={600} height={300} />
+      <ComparativeBarChart comparativeStats={comparativeStats} width={600} height={300} theme={theme} />
     </div>
   );
 }
