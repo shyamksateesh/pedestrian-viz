@@ -895,8 +895,14 @@ export default function App() {
                 {/* Settings Button */}
                 <button
                     onClick={() => {
-                        setIsControlsOpen(true);
-                        setIsStatsOpen(false);
+                        if (isControlsOpen) {
+                            // Close if already open (toggle off)
+                            setIsControlsOpen(false);
+                        } else {
+                            // Open and close stats
+                            setIsControlsOpen(true);
+                            setIsStatsOpen(false);
+                        }
                     }}
                     style={{
                         width: '44px',
@@ -905,7 +911,7 @@ export default function App() {
                         color: isControlsOpen ? 'white' : theme.primary,
                         border: 'none',
                         borderRadius: '8px',
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                        boxShadow: theme.shadowMd,
                         cursor: 'pointer',
                         fontSize: '20px',
                         display: 'flex',
@@ -921,8 +927,14 @@ export default function App() {
                 {/* Statistics Button */}
                 <button
                     onClick={() => {
-                        setIsStatsOpen(true);
-                        setIsControlsOpen(false);
+                        if (isStatsOpen) {
+                            // Close if already open (toggle off)
+                            setIsStatsOpen(false);
+                        } else {
+                            // Open and close settings
+                            setIsStatsOpen(true);
+                            setIsControlsOpen(false);
+                        }
                     }}
                     style={{
                         width: '44px',
@@ -931,7 +943,7 @@ export default function App() {
                         color: isStatsOpen ? 'white' : theme.primary,
                         border: 'none',
                         borderRadius: '8px',
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                        boxShadow: theme.shadowMd,
                         cursor: 'pointer',
                         fontSize: '20px',
                         display: 'flex',
