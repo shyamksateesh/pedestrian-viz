@@ -346,7 +346,7 @@ export function ComparativeBarChart({ comparativeStats, width = 600, height = 30
 // ============================================================================
 // RADIAL CHART - DARK MODE AWARE
 // ============================================================================
-export function InfrastructureRadial({ currentStats, size = 200, theme }) {
+export function InfrastructureRadial({ currentStats, size = 200, theme, shouldAnimate = true }) {
   const svgRef = useRef();
 
   useEffect(() => {
@@ -388,29 +388,42 @@ export function InfrastructureRadial({ currentStats, size = 200, theme }) {
       .attr('fill', d => d.data.color)
       .attr('stroke', theme.surface)
       .attr('stroke-width', 3)
-      .style('cursor', 'pointer')
-      .each(function(d) { this._current = { startAngle: 0, endAngle: 0 }; });
+      .style('cursor', 'pointer');
 
-    arcs.transition()
-      .duration(1000)
-      .delay((d, i) => i * 150)
-      .ease(d3.easeBackOut)
-      .attrTween('d', function(d) {
-        const interpolate = d3.interpolate(this._current, d);
-        this._current = interpolate(1);
-        return t => arc(interpolate(t));
-      })
-      .on('end', function() {
-        d3.select(this)
-          .on('mouseover', function() {
-            d3.select(this).transition().duration(200).attr('d', arcHover);
-          })
-          .on('mouseout', function() {
-            d3.select(this).transition().duration(200).attr('d', arc);
-          });
-      });
+    if (shouldAnimate) {
+      // Animate arcs
+      arcs.each(function(d) { this._current = { startAngle: 0, endAngle: 0 }; });
+      
+      arcs.transition()
+        .duration(1000)
+        .delay((d, i) => i * 150)
+        .ease(d3.easeBackOut)
+        .attrTween('d', function(d) {
+          const interpolate = d3.interpolate(this._current, d);
+          this._current = interpolate(1);
+          return t => arc(interpolate(t));
+        })
+        .on('end', function() {
+          d3.select(this)
+            .on('mouseover', function() {
+              d3.select(this).transition().duration(200).attr('d', arcHover);
+            })
+            .on('mouseout', function() {
+              d3.select(this).transition().duration(200).attr('d', arc);
+            });
+        });
+    } else {
+      // No animation - draw immediately
+      arcs.attr('d', arc)
+        .on('mouseover', function() {
+          d3.select(this).transition().duration(200).attr('d', arcHover);
+        })
+        .on('mouseout', function() {
+          d3.select(this).transition().duration(200).attr('d', arc);
+        });
+    }
 
-    const centerText = g.append('g').attr('opacity', 0);
+    const centerText = g.append('g');
 
     centerText.append('text')
       .attr('text-anchor', 'middle')
@@ -427,9 +440,14 @@ export function InfrastructureRadial({ currentStats, size = 200, theme }) {
       .attr('fill', theme.textTertiary)
       .text('Total km');
 
-    centerText.transition().duration(500).delay(800).attr('opacity', 1);
+    if (shouldAnimate) {
+      centerText.attr('opacity', 0)
+        .transition().duration(500).delay(800).attr('opacity', 1);
+    } else {
+      centerText.attr('opacity', 1);
+    }
 
-  }, [currentStats, size, theme]);
+  }, [currentStats, size, theme, shouldAnimate]);
 
   return (
     <div style={{ 
@@ -461,10 +479,12 @@ export default function StatisticsPanel({
 }) {
   const [activeTab, setActiveTab] = useState('overview');
   const [tabKey, setTabKey] = useState(0);
+  const [lastTabSwitch, setLastTabSwitch] = useState(Date.now()); // Track when tab was switched
 
   const handleTabChange = (newTab) => {
     setActiveTab(newTab);
-    setTabKey(prev => prev + 1);
+    setLastTabSwitch(Date.now()); // Update timestamp on tab switch
+    setTabKey(prev => prev + 1); // Increment key to force re-mount
   };
 
   if (!yearlyStats || Object.keys(yearlyStats).length === 0) {
@@ -530,11 +550,11 @@ export default function StatisticsPanel({
       <div style={{ flex: 1, overflowY: 'auto', padding: '15px' }}>
         {activeTab === 'overview' && (
           <OverviewTab 
-            key={`overview-${tabKey}`} 
             currentStats={currentStats} 
             temporalStats={temporalStats} 
             currentYear={currentYear}
             theme={theme}
+            lastTabSwitch={lastTabSwitch}
           />
         )}
         {activeTab === 'trends' && (
@@ -549,7 +569,23 @@ export default function StatisticsPanel({
 }
 
 // Tab Components
-function OverviewTab({ currentStats, temporalStats, currentYear, theme }) {
+function OverviewTab({ currentStats, temporalStats, currentYear, theme, lastTabSwitch }) {
+  const [shouldAnimate, setShouldAnimate] = useState(true);
+  const prevYearRef = useRef(currentYear);
+
+  useEffect(() => {
+    // If year changed (slider moved), don't animate
+    if (prevYearRef.current !== currentYear) {
+      setShouldAnimate(false);
+      prevYearRef.current = currentYear;
+    }
+  }, [currentYear]);
+
+  useEffect(() => {
+    // When tab is switched (lastTabSwitch changes), enable animation
+    setShouldAnimate(true);
+  }, [lastTabSwitch]);
+
   if (!currentStats) {
     return <div style={{ padding: '20px', textAlign: 'center', color: theme.textSecondary }}>
       No data for {currentYear}
@@ -599,8 +635,8 @@ function OverviewTab({ currentStats, temporalStats, currentYear, theme }) {
               borderRadius: '10px',
               boxShadow: theme.shadowSm,
               borderLeft: `4px solid ${COLORS[metric.type]}`,
-              opacity: 0,
-              animation: `fadeInUp 0.5s ease-out ${i * 0.1}s forwards`,
+              opacity: shouldAnimate ? 0 : 1,
+              animation: shouldAnimate ? `fadeInUp 0.5s ease-out ${i * 0.1}s forwards` : 'none',
               transition: 'all 0.3s ease'
             }}
           >
@@ -628,7 +664,12 @@ function OverviewTab({ currentStats, temporalStats, currentYear, theme }) {
         ))}
       </div>
 
-      <InfrastructureRadial currentStats={currentStats} size={200} theme={theme} />
+      <InfrastructureRadial 
+        currentStats={currentStats} 
+        size={200} 
+        theme={theme} 
+        shouldAnimate={shouldAnimate}
+      />
       
       <style>{`
         @keyframes fadeInUp {

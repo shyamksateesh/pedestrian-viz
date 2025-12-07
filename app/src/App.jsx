@@ -428,7 +428,7 @@ export default function App() {
   const [isNetworkVisible, setIsNetworkVisible] = useState(true);
   const [mapInitialized, setMapInitialized] = useState(false);
   const [isControlsOpen, setIsControlsOpen] = useState(false);
-  const [isStatsOpen, setIsStatsOpen] = useState(true); // Stats open by default
+  const [isStatsOpen, setIsStatsOpen] = useState(false); // Both hidden by default
   const [isDarkMode, setIsDarkMode] = useState(false);
 
   // STATISTICS STATE
@@ -502,45 +502,56 @@ export default function App() {
       });
   }, []); 
 
-  // LOAD ALL NETWORK DATA
+  // LAZY LOAD NETWORK DATA WHEN TILE IS SELECTED
   useEffect(() => {
-    if (!availableTiles || availableTiles.length === 0 || Object.keys(allNetworkData).length > 0) return;
-
-    setIsLoading(true);
+    if (!activeTileID) return;
     
-    const allTilePromises = availableTiles.map(tile => {
-        const tileID = tile.tile_id;
-        
-        const yearPromises = YEARS.map(year => {
-            const dataPath = `/data/tiles/${tileID}/networks/${year}.geojson`;
-            return fetch(dataPath)
-                .then(response => response.ok ? response.json() : null)
-                .then(data => ({ year, data }))
-                .catch(() => null);
+    // Check if we already have this tile's data
+    if (allNetworkData[activeTileID]) {
+      console.log(`✅ Data already loaded for ${activeTileID}`);
+      return;
+    }
+    
+    // Show loading state
+    setIsLoading(true);
+    console.log(`🔄 Loading network data for ${activeTileID}...`);
+    
+    // Load all years for this specific tile
+    const yearPromises = YEARS.map(year => {
+      const dataPath = `/data/tiles/${activeTileID}/networks/${year}.geojson`;
+      return fetch(dataPath)
+        .then(response => response.ok ? response.json() : null)
+        .then(data => ({ year, data }))
+        .catch(() => {
+          console.warn(`⚠️  Failed to load ${activeTileID}/${year}.geojson`);
+          return null;
         });
-        
-        return Promise.all(yearPromises)
-            .then(results => {
-                const yearData = {};
-                results.forEach(result => {
-                    if (result && result.data) yearData[result.year] = result.data;
-                });
-                return { tileID, yearData };
-            });
     });
     
-    Promise.all(allTilePromises)
+    Promise.all(yearPromises)
       .then(results => {
-        const globalData = {};
+        const yearData = {};
         results.forEach(result => {
-            globalData[result.tileID] = result.yearData;
+          if (result && result.data) {
+            yearData[result.year] = result.data;
+          }
         });
         
-        setAllNetworkData(globalData);
+        // Cache this tile's data
+        setAllNetworkData(prev => ({
+          ...prev,
+          [activeTileID]: yearData
+        }));
+        
+        setIsLoading(false);
+        console.log(`✅ Loaded ${Object.keys(yearData).length} years for ${activeTileID}`);
+      })
+      .catch(error => {
+        console.error(`❌ Error loading ${activeTileID}:`, error);
         setIsLoading(false);
       });
       
-  }, [availableTiles]);
+  }, [activeTileID]);
 
   // ============================================================================
   // CRITICAL FIX: STABLE STATISTICS CALCULATION
@@ -653,8 +664,8 @@ export default function App() {
     return null;
   };
 
-  // LOADING STATE
-  if (isLoading || !currentBounds) {
+  // INITIAL LOADING STATE (tiles index only)
+  if (!availableTiles || !currentBounds) {
       return (
           <div style={{
             width: '100vw', 
@@ -675,9 +686,7 @@ export default function App() {
                 color: theme.textPrimary,
                 transition: 'all 0.3s ease'
               }}>
-                {availableTiles ? 
-                  `Loading ${availableTiles.length} regions...` : 
-                  `Loading map...`}
+                Loading map...
               </div>
           </div>
       );
@@ -733,7 +742,12 @@ export default function App() {
       )}
       
       {/* Map Container */}
-      <div style={{ flex: 1, position: 'relative' }}>
+      <div style={{ 
+        flex: 1, 
+        position: 'relative',
+        background: isAreaSelected ? theme.background : 'transparent',
+        transition: 'background 0.3s ease'
+      }}>
         <MapContainer
           center={[(currentBounds[0][0] + currentBounds[1][0]) / 2, (currentBounds[0][1] + currentBounds[1][1]) / 2]}
           zoom={12} 
@@ -772,6 +786,72 @@ export default function App() {
             setHoveredTile={setHoveredTileID}
           />
         </MapContainer>
+        
+        {/* LOADING SPINNER - Appears when tile data is being fetched */}
+        {isLoading && isAreaSelected && (
+          <div style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.4)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 2000,
+            animation: 'fadeIn 0.2s ease-in'
+          }}>
+            <div style={{
+              background: theme.surface,
+              padding: '30px 40px',
+              borderRadius: '16px',
+              boxShadow: theme.shadowLg,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '15px'
+            }}>
+              {/* Spinner */}
+              <div style={{
+                width: '50px',
+                height: '50px',
+                border: `4px solid ${theme.border}`,
+                borderTop: `4px solid ${theme.primary}`,
+                borderRadius: '50%',
+                animation: 'spin 1s linear infinite'
+              }} />
+              
+              <div style={{
+                color: theme.textPrimary,
+                fontSize: '16px',
+                fontWeight: '500'
+              }}>
+                Loading tile data...
+              </div>
+              
+              <div style={{
+                color: theme.textSecondary,
+                fontSize: '13px'
+              }}>
+                {activeTileData?.name || 'Region'}
+              </div>
+            </div>
+            
+            <style>{`
+              @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+              }
+              
+              @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+              }
+            `}</style>
+          </div>
+        )}
         
         {/* Go Back Button */}
         {isAreaSelected && (
