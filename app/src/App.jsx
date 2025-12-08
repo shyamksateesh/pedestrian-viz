@@ -12,7 +12,7 @@ import StatisticsPanel from './components/StatisticsPanel_D3';
 import { THEMES } from './utils/theme';
 
 // ============================================================================
-// MOVE CONSTANTS OUTSIDE COMPONENT - CRITICAL FIX
+// CONSTANTS
 // ============================================================================
 const YEARS = [2004, 2006, 2008, 2010, 2012, 2014, 2016, 2018, 2020, 2022, 2024];
 
@@ -21,6 +21,309 @@ const DEFAULT_LAYER_COLORS = {
   road: '#FF6B6B',
   crosswalk: '#4ECDC4'
 };
+
+// ============================================================================
+// MULTI-TILE UTILITY FUNCTIONS
+// ============================================================================
+
+/**
+ * Parses tile name to extract row and column
+ * Format: "manhattan_tile_123 (R5C3)" -> { row: 5, col: 3 }
+ */
+function parseTileName(name) {
+  const match = name.match(/\(R(\d+)C(\d+)\)/);
+  if (match) {
+    return { row: parseInt(match[1]), col: parseInt(match[2]) };
+  }
+  return null;
+}
+
+/**
+ * Validates if selected tiles form a valid rectangle
+ * Rules: 1-16 tiles, adjacent, forming rectangle
+ */
+function validateTileSelection(tileIDs, tiles) {
+  if (!tileIDs || tileIDs.length === 0 || tileIDs.length > 16) {
+    return { valid: false, error: 'Must select 1-16 tiles' };
+  }
+
+  if (tileIDs.length === 1) {
+    return { valid: true };
+  }
+
+  // Parse all tile positions
+  const positions = tileIDs.map(id => {
+    const tile = tiles.find(t => t.tile_id === id);
+    if (!tile) return null;
+    const parsed = parseTileName(tile.name);
+    return parsed ? { id, ...parsed } : null;
+  }).filter(Boolean);
+
+  if (positions.length !== tileIDs.length) {
+    return { valid: false, error: 'Could not parse tile positions' };
+  }
+
+  // Get bounds
+  const rows = positions.map(p => p.row);
+  const cols = positions.map(p => p.col);
+  const minRow = Math.min(...rows);
+  const maxRow = Math.max(...rows);
+  const minCol = Math.min(...cols);
+  const maxCol = Math.max(...cols);
+
+  const expectedCount = (maxRow - minRow + 1) * (maxCol - minCol + 1);
+  
+  if (positions.length !== expectedCount) {
+    return { valid: false, error: 'Tiles must be adjacent and form a rectangle' };
+  }
+
+  // Check all positions are filled
+  for (let r = minRow; r <= maxRow; r++) {
+    for (let c = minCol; c <= maxCol; c++) {
+      if (!positions.find(p => p.row === r && p.col === c)) {
+        return { valid: false, error: 'Missing tile in rectangle' };
+      }
+    }
+  }
+
+  return { 
+    valid: true, 
+    layout: { 
+      minRow, maxRow, minCol, maxCol,
+      rows: maxRow - minRow + 1,
+      cols: maxCol - minCol + 1
+    }
+  };
+}
+
+/**
+ * Gets tiles between start and current hover (rectangle selection)
+ */
+function getTilesBetween(startID, endID, tiles) {
+  const startTile = tiles.find(t => t.tile_id === startID);
+  const endTile = tiles.find(t => t.tile_id === endID);
+  
+  if (!startTile || !endTile) return [];
+  
+  const startPos = parseTileName(startTile.name);
+  const endPos = parseTileName(endTile.name);
+  
+  if (!startPos || !endPos) return [];
+  
+  const minRow = Math.min(startPos.row, endPos.row);
+  const maxRow = Math.max(startPos.row, endPos.row);
+  const minCol = Math.min(startPos.col, endPos.col);
+  const maxCol = Math.max(startPos.col, endPos.col);
+  
+  const selectedIDs = [];
+  for (let r = minRow; r <= maxRow; r++) {
+    for (let c = minCol; c <= maxCol; c++) {
+      const tile = tiles.find(t => {
+        const pos = parseTileName(t.name);
+        return pos && pos.row === r && pos.col === c;
+      });
+      if (tile) selectedIDs.push(tile.tile_id);
+    }
+  }
+  
+  return selectedIDs;
+}
+
+/**
+ * Calculates combined NETWORK bounds for multiple tiles (not image bounds)
+ */
+function getCombinedNetworkBounds(tileIDs, tiles) {
+  const selectedTiles = tileIDs.map(id => tiles.find(t => t.tile_id === id)).filter(Boolean);
+  if (selectedTiles.length === 0) return null;
+  
+  let minLat = 90, maxLat = -90, minLon = 180, maxLon = -180;
+  
+  selectedTiles.forEach(tile => {
+    // Use network_bounds instead of bounds
+    const b = tile.network_bounds || tile.bounds;
+    minLat = Math.min(minLat, b.south);
+    maxLat = Math.max(maxLat, b.north);
+    minLon = Math.min(minLon, b.west);
+    maxLon = Math.max(maxLon, b.east);
+  });
+  
+  return { south: minLat, north: maxLat, west: minLon, east: maxLon };
+}
+
+/**
+ * Merges GeoJSON data from multiple tiles WITHOUT transformation
+ * Keep network data raw and accurate
+ */
+function mergeGeoJSON(tileIDs, year, allNetworkData) {
+  const features = [];
+  
+  tileIDs.forEach(tileID => {
+    const data = allNetworkData[tileID]?.[year];
+    if (data && data.features) {
+      // NO TRANSFORMATION - keep network data accurate
+      features.push(...data.features);
+    }
+  });
+  
+  return {
+    type: "FeatureCollection",
+    features: features
+  };
+}
+
+/**
+ * Stitches multiple tile images into one using Canvas
+ * FIX: Canvas Y grows downward, but tile rows grow upward in lat/lon
+ */
+async function stitchImages(tileIDs, year, tiles, layout) {
+  const { minRow, maxRow, minCol, maxCol, rows, cols } = layout;
+  
+  // Create canvas
+  const canvas = document.createElement('canvas');
+  canvas.width = 512 * cols;
+  canvas.height = 512 * rows;
+  const ctx = canvas.getContext('2d');
+  
+  // Load and draw all images
+  const imagePromises = [];
+  
+  for (let r = minRow; r <= maxRow; r++) {
+    for (let c = minCol; c <= maxCol; c++) {
+      const tile = tiles.find(t => {
+        const pos = parseTileName(t.name);
+        return pos && pos.row === r && pos.col === c;
+      });
+      
+      if (tile) {
+        const imgPath = `/data/tiles/${tile.tile_id}/imagery/${year}.png`;
+        const canvasX = (c - minCol) * 512;
+        // FIX: Invert Y-axis - higher row numbers should be at top of canvas
+        const canvasY = (maxRow - r) * 512;
+        
+        const promise = new Promise((resolve, reject) => {
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          img.onload = () => {
+            ctx.drawImage(img, canvasX, canvasY, 512, 512);
+            resolve();
+          };
+          img.onerror = () => {
+            console.warn(`Failed to load image: ${imgPath}`);
+            resolve(); // Don't reject, just skip
+          };
+          img.src = imgPath;
+        });
+        
+        imagePromises.push(promise);
+      }
+    }
+  }
+  
+  await Promise.all(imagePromises);
+  
+  return canvas.toDataURL('image/png');
+}
+
+// ============================================================================
+// COMPONENTS
+// ============================================================================
+
+// --- MULTI-TILE WARNING DIALOG ---
+function MultiTileWarningDialog({ onAccept, onCancel, theme }) {
+  return (
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      background: 'rgba(0, 0, 0, 0.7)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 10000,
+      animation: 'fadeIn 0.2s ease-in'
+    }}>
+      <div style={{
+        background: theme.surface,
+        borderRadius: '16px',
+        padding: '30px 40px',
+        maxWidth: '500px',
+        boxShadow: theme.shadowLg,
+        border: `2px solid ${theme.primary}`
+      }}>
+        <div style={{
+          fontSize: '24px',
+          fontWeight: '700',
+          color: theme.primary,
+          marginBottom: '20px',
+          textAlign: 'center'
+        }}>
+          ⚠️ Multi-Tile Mode Notice
+        </div>
+        
+        <div style={{
+          fontSize: '15px',
+          color: theme.textPrimary,
+          lineHeight: '1.6',
+          marginBottom: '20px'
+        }}>
+          <p style={{ marginTop: 0 }}>
+            In multi-tile mode, <strong>imagery and network overlays may not align perfectly</strong> due to precision differences in tile extraction.
+          </p>
+          <p style={{
+            background: theme.background,
+            padding: '12px',
+            borderRadius: '8px',
+            borderLeft: `4px solid ${theme.primary}`
+          }}>
+            ✅ <strong>GeoJSON network data remains accurate</strong> and can be relied upon for analysis.
+          </p>
+          <p style={{ marginBottom: 0 }}>
+            The imagery will be displayed at <strong>10% opacity</strong> to emphasize the network data. Please use this feature keeping these limitations in mind.
+          </p>
+        </div>
+        
+        <div style={{
+          display: 'flex',
+          gap: '12px',
+          justifyContent: 'flex-end'
+        }}>
+          <button
+            onClick={onCancel}
+            style={{
+              padding: '10px 20px',
+              background: theme.buttonHover,
+              color: theme.textPrimary,
+              border: `1px solid ${theme.border}`,
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: '600'
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onAccept}
+            style={{
+              padding: '10px 20px',
+              background: theme.primary,
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: '600'
+            }}
+          >
+            Alright, Continue
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // --- DRAGGABLE TOOLTIP COMPONENT ---
 function DraggableTooltip({ hoveredTileData, parseTileName, position, setPosition, theme }) {
@@ -263,9 +566,19 @@ function TileInteractionLayer({
   isNetworkVisible,
   lastVisitedTile,
   hoveredTile,
-  setHoveredTile 
+  setHoveredTile,
+  isMultiTileMode,
+  selectionStart,
+  setSelectionStart,
+  previewTiles,
+  setPreviewTiles,
+  stitchedImages,
+  allNetworkData
 }) {
     const map = useMap();
+    
+    const isMultiTile = Array.isArray(activeTile) && activeTile.length > 1;
+    const activeTileIDs = Array.isArray(activeTile) ? activeTile : (activeTile ? [activeTile] : []);
 
     useEffect(() => {
         if (!availableTiles || availableTiles.length === 0) return;
@@ -276,39 +589,118 @@ function TileInteractionLayer({
               [tile.bounds.north, tile.bounds.east]
             ];
             
-            const isLastVisited = tile.tile_id === lastVisitedTile;
+            // FIX: Only show gold highlight when NO tiles are active
+            const showLastVisited = activeTileIDs.length === 0;
+            const isLastVisited = showLastVisited && (
+              Array.isArray(lastVisitedTile) 
+                ? lastVisitedTile.includes(tile.tile_id)
+                : tile.tile_id === lastVisitedTile
+            );
+            
+            const isInPreview = previewTiles.includes(tile.tile_id);
+            const isStartTile = tile.tile_id === selectionStart;
+            
+            // Selection preview styling
+            let fillColor = '#667eea';
+            let fillOpacity = 0;
+            let weight = 0;
+            let dashArray = null;
+            
+            if (isStartTile) {
+              fillColor = '#10b981';
+              fillOpacity = 0.3;
+              weight = 3;
+            } else if (isInPreview) {
+              fillColor = '#667eea';
+              fillOpacity = 0.15;
+              weight = 2;
+              dashArray = '5, 5';
+            } else if (isLastVisited) {
+              fillColor = '#fbbf24';
+              fillOpacity = 0.15;
+              weight = 2;
+            }
             
             const rect = L.rectangle(leafletBounds, {
-                fillColor: isLastVisited ? '#fbbf24' : '#667eea', 
-                fillOpacity: isLastVisited ? 0.15 : 0, 
-                weight: isLastVisited ? 2 : 0,
-                color: '#fbbf24',
-                interactive: true,
+                fillColor: fillColor,
+                fillOpacity: fillOpacity,
+                weight: weight,
+                color: fillColor,
+                dashArray: dashArray,
+                interactive: !activeTileIDs.length,
                 pane: 'overlayPane'
             }).addTo(map);
 
             const mouseoverHandler = () => { 
-                if (!activeTile) {
-                    rect.setStyle({ 
-                      fillOpacity: isLastVisited ? 0.25 : 0.2,
-                      weight: isLastVisited ? 2 : 0
-                    });
+                if (activeTileIDs.length === 0) {
+                    if (isMultiTileMode && selectionStart) {
+                      const preview = getTilesBetween(selectionStart, tile.tile_id, availableTiles);
+                      setPreviewTiles(preview);
+                    } else if (isMultiTileMode && !selectionStart) {
+                      rect.setStyle({ 
+                        fillOpacity: 0.2,
+                        weight: 2,
+                        color: '#667eea'
+                      });
+                    } else if (!isMultiTileMode) {
+                      rect.setStyle({ 
+                        fillOpacity: isLastVisited ? 0.25 : 0.2,
+                        weight: isLastVisited ? 2 : 0
+                      });
+                    }
                     setHoveredTile(tile.tile_id);
                 }
             };
+            
             const mouseoutHandler = () => { 
-                if (!activeTile) {
-                    rect.setStyle({ 
-                      fillOpacity: isLastVisited ? 0.15 : 0,
-                      weight: isLastVisited ? 2 : 0
-                    });
+                if (activeTileIDs.length === 0) {
+                    if (isMultiTileMode && selectionStart) {
+                      setPreviewTiles([]);
+                    } else if (isMultiTileMode && !selectionStart) {
+                      rect.setStyle({ 
+                        fillOpacity: isLastVisited ? 0.15 : 0,
+                        weight: isLastVisited ? 2 : 0,
+                        color: isLastVisited ? '#fbbf24' : '#667eea'
+                      });
+                    } else if (!isMultiTileMode) {
+                      rect.setStyle({ 
+                        fillOpacity: isLastVisited ? 0.15 : 0,
+                        weight: isLastVisited ? 2 : 0
+                      });
+                    }
                     setHoveredTile(null);
                 }
             };
+            
             const dblclickHandler = (e) => {
-                if (!activeTile) {
-                    L.DomEvent.stop(e); 
-                    setActiveTile(tile.tile_id);
+                if (activeTileIDs.length === 0) {
+                    L.DomEvent.stop(e);
+                    L.DomEvent.stopPropagation(e);
+                    
+                    if (isMultiTileMode) {
+                      if (!selectionStart) {
+                        setSelectionStart(tile.tile_id);
+                      } else if (selectionStart === tile.tile_id) {
+                        setActiveTile(tile.tile_id);
+                        setSelectionStart(null);
+                        setPreviewTiles([]);
+                      } else {
+                        const selectedIDs = getTilesBetween(selectionStart, tile.tile_id, availableTiles);
+                        const validation = validateTileSelection(selectedIDs, availableTiles);
+                        
+                        if (validation.valid) {
+                          setActiveTile(selectedIDs);
+                          setSelectionStart(null);
+                          setPreviewTiles([]);
+                        } else {
+                          alert(`Invalid selection: ${validation.error}`);
+                          setSelectionStart(null);
+                          setPreviewTiles([]);
+                        }
+                      }
+                    } else {
+                      setActiveTile(tile.tile_id);
+                    }
                 }
             };
 
@@ -322,14 +714,54 @@ function TileInteractionLayer({
         return () => {
             tileRects.forEach(rect => map.removeLayer(rect));
         };
-    }, [map, availableTiles, activeTile, setActiveTile, lastVisitedTile, setHoveredTile]);
+    }, [map, availableTiles, activeTileIDs.join(','), setActiveTile, lastVisitedTile, setHoveredTile, 
+        isMultiTileMode, selectionStart, setSelectionStart, previewTiles.join(','), setPreviewTiles]);
 
-    if (!activeTile) {
+    if (activeTileIDs.length === 0) {
         return null; 
     }
 
-    const tileID = activeTile;
+    // Multi-tile rendering
+    if (isMultiTile) {
+        // Use NETWORK bounds for overlay, not image bounds
+        const combinedNetworkBounds = getCombinedNetworkBounds(activeTileIDs, availableTiles);
+        const networkBounds = [
+          [combinedNetworkBounds.south, combinedNetworkBounds.west],
+          [combinedNetworkBounds.north, combinedNetworkBounds.east]
+        ];
+        
+        const stitchedKey = `${activeTileIDs.join('-')}-${currentYear}`;
+        const stitchedImage = stitchedImages[stitchedKey];
+        
+        const mergedGeoJSON = mergeGeoJSON(activeTileIDs, currentYear, allNetworkData);
+        
+        return (
+            <>
+                {stitchedImage ? (
+                    <ImageOverlay
+                        url={stitchedImage}
+                        bounds={networkBounds}  // Use network bounds, not image bounds
+                        opacity={satelliteOpacity}
+                        key={`stitched-${currentYear}-${activeTileIDs.join('-')}`}
+                    />
+                ) : null}
+                
+                {mergedGeoJSON && isNetworkVisible && mergedGeoJSON.features.length > 0 && (
+                    <GeoJSON
+                        data={mergedGeoJSON}
+                        style={getFeatureStyle}
+                        key={`geojson-multi-${currentYear}-${JSON.stringify(layers)}-${activeTileIDs.join('-')}`}
+                    />
+                )}
+            </>
+        );
+    }
+
+    // Single tile rendering (unchanged)
+    const tileID = activeTileIDs[0];
     const activeTileData = availableTiles.find(t => t.tile_id === tileID);
+    
+    if (!activeTileData) return null;
     
     const imageBounds = [
       [activeTileData.bounds.south, activeTileData.bounds.west],
@@ -406,7 +838,9 @@ function TileInteractionLayer({
     );
 }
 
-// --- MAIN APP ---
+// ============================================================================
+// MAIN APP
+// ============================================================================
 export default function App() {
   // STATE
   const [availableTiles, setAvailableTiles] = useState(null);
@@ -417,6 +851,7 @@ export default function App() {
   const [allNetworkData, setAllNetworkData] = useState({});
   const [isLoading, setIsLoading] = useState(true);
   const [satelliteOpacity, setSatelliteOpacity] = useState(0.8);
+  const [singleTileOpacity, setSingleTileOpacity] = useState(0.8); // Remember user's single-tile setting
   const [networkFillOpacity, setNetworkFillOpacity] = useState(0.5);
   const [layers, setLayers] = useState({
     sidewalk: true,
@@ -428,14 +863,44 @@ export default function App() {
   const [isNetworkVisible, setIsNetworkVisible] = useState(true);
   const [mapInitialized, setMapInitialized] = useState(false);
   const [isControlsOpen, setIsControlsOpen] = useState(false);
-  const [isStatsOpen, setIsStatsOpen] = useState(false); // Both hidden by default
+  const [isStatsOpen, setIsStatsOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
+
+  // MULTI-TILE STATE
+  const [isMultiTileMode, setIsMultiTileMode] = useState(false);
+  const [selectionStart, setSelectionStart] = useState(null);
+  const [previewTiles, setPreviewTiles] = useState([]);
+  const [stitchedImages, setStitchedImages] = useState({});
+  const [showMultiTileWarning, setShowMultiTileWarning] = useState(false);
+  const [pendingMultiTileSelection, setPendingMultiTileSelection] = useState(null);
 
   // STATISTICS STATE
   const [tileStats, setTileStats] = useState(null);
   const [temporalStats, setTemporalStats] = useState(null);
   const [comparativeStats, setComparativeStats] = useState(null);
   const [insights, setInsights] = useState([]);
+
+  // YEAR FILTER STATE
+  const [selectedYears, setSelectedYears] = useState(YEARS); // All years selected by default
+  const [isYearFilterOpen, setIsYearFilterOpen] = useState(false);
+  const yearFilterRef = useRef(null);
+
+  // Close year filter when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (yearFilterRef.current && !yearFilterRef.current.contains(event.target)) {
+        setIsYearFilterOpen(false);
+      }
+    };
+
+    if (isYearFilterOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isYearFilterOpen]);
 
   const [tooltipPosition, setTooltipPosition] = useState(() => {
     return { x: 20, y: window.innerHeight - 200 };
@@ -445,7 +910,23 @@ export default function App() {
   const theme = isDarkMode ? THEMES.dark : THEMES.light;
   
   const isAreaSelected = !!activeTileID;
-  const activeTileData = availableTiles ? availableTiles.find(t => t.tile_id === activeTileID) : null;
+  const isMultiTile = Array.isArray(activeTileID) && activeTileID.length > 1;
+  const activeTileIDs = Array.isArray(activeTileID) ? activeTileID : (activeTileID ? [activeTileID] : []);
+  
+  // Get tile data
+  const activeTileData = useMemo(() => {
+    if (!availableTiles || !activeTileID) return null;
+    if (isMultiTile) {
+      const combinedBounds = getCombinedNetworkBounds(activeTileIDs, availableTiles);
+      return {
+        bounds: combinedBounds,
+        name: `Multi-Tile Selection (${activeTileIDs.length} tiles)`,
+        tile_id: activeTileIDs.join('-')
+      };
+    }
+    return availableTiles.find(t => t.tile_id === activeTileID);
+  }, [availableTiles, activeTileID, activeTileIDs, isMultiTile]);
+  
   const hoveredTileData = availableTiles ? availableTiles.find(t => t.tile_id === hoveredTileID) : null;
 
   const currentBounds = useMemo(() => {
@@ -468,7 +949,13 @@ export default function App() {
     return null;
   }, [availableTiles, activeTileData]);
   
-  const currentNetworkData = activeTileID ? allNetworkData[activeTileID]?.[currentYear] : null;
+  const currentNetworkData = useMemo(() => {
+    if (!activeTileID) return null;
+    if (isMultiTile) {
+      return mergeGeoJSON(activeTileIDs, currentYear, allNetworkData);
+    }
+    return allNetworkData[activeTileID]?.[currentYear];
+  }, [activeTileID, activeTileIDs, currentYear, allNetworkData, isMultiTile]);
 
   // LOAD TILES INDEX AND METADATA
   useEffect(() => {
@@ -502,64 +989,99 @@ export default function App() {
       });
   }, []); 
 
-  // LAZY LOAD NETWORK DATA WHEN TILE IS SELECTED
+  // LAZY LOAD NETWORK DATA WHEN TILE(S) SELECTED
   useEffect(() => {
-    if (!activeTileID) return;
+    if (!activeTileIDs || activeTileIDs.length === 0) return;
     
-    // Check if we already have this tile's data
-    if (allNetworkData[activeTileID]) {
-      console.log(`✅ Data already loaded for ${activeTileID}`);
+    const tilesToLoad = activeTileIDs.filter(id => !allNetworkData[id]);
+    
+    if (tilesToLoad.length === 0) {
+      setIsLoading(false);
       return;
     }
     
-    // Show loading state
     setIsLoading(true);
-    console.log(`🔄 Loading network data for ${activeTileID}...`);
     
-    // Load all years for this specific tile
-    const yearPromises = YEARS.map(year => {
-      const dataPath = `/data/tiles/${activeTileID}/networks/${year}.geojson`;
-      return fetch(dataPath)
-        .then(response => response.ok ? response.json() : null)
-        .then(data => ({ year, data }))
-        .catch(() => {
-          console.warn(`⚠️  Failed to load ${activeTileID}/${year}.geojson`);
-          return null;
-        });
-    });
-    
-    Promise.all(yearPromises)
-      .then(results => {
+    const tilePromises = tilesToLoad.map(tileID => {
+      const yearPromises = YEARS.map(year => {
+        const dataPath = `/data/tiles/${tileID}/networks/${year}.geojson`;
+        return fetch(dataPath)
+          .then(response => response.ok ? response.json() : null)
+          .then(data => ({ year, data }))
+          .catch(() => null);
+      });
+      
+      return Promise.all(yearPromises).then(results => {
         const yearData = {};
         results.forEach(result => {
           if (result && result.data) {
             yearData[result.year] = result.data;
           }
         });
+        return { tileID, yearData };
+      });
+    });
+    
+    Promise.all(tilePromises)
+      .then(results => {
+        const newData = {};
+        results.forEach(({ tileID, yearData }) => {
+          newData[tileID] = yearData;
+        });
         
-        // Cache this tile's data
         setAllNetworkData(prev => ({
           ...prev,
-          [activeTileID]: yearData
+          ...newData
         }));
         
         setIsLoading(false);
-        console.log(`✅ Loaded ${Object.keys(yearData).length} years for ${activeTileID}`);
       })
       .catch(error => {
-        console.error(`❌ Error loading ${activeTileID}:`, error);
+        console.error(`❌ Error loading tiles:`, error);
         setIsLoading(false);
       });
       
-  }, [activeTileID]);
+  }, [activeTileIDs.join(',')]);
 
-  // ============================================================================
-  // CRITICAL FIX: STABLE STATISTICS CALCULATION
-  // ============================================================================
+  // STITCH IMAGES FOR MULTI-TILE
   useEffect(() => {
-    console.log('Stats effect triggered', { activeTileID, hasData: !!allNetworkData[activeTileID] });
+    if (!isMultiTile || !availableTiles) return;
     
-    if (!activeTileID || !allNetworkData[activeTileID] || !activeTileData) {
+    const validation = validateTileSelection(activeTileIDs, availableTiles);
+    if (!validation.valid) return;
+    
+    const { layout } = validation;
+    
+    const stitchPromises = YEARS.map(async (year) => {
+      const key = `${activeTileIDs.join('-')}-${year}`;
+      
+      if (stitchedImages[key]) return null;
+      
+      const stitched = await stitchImages(activeTileIDs, year, availableTiles, layout);
+      return { year, key, stitched };
+    });
+    
+    Promise.all(stitchPromises).then(results => {
+      const newStitched = {};
+      results.forEach(result => {
+        if (result) {
+          newStitched[result.key] = result.stitched;
+        }
+      });
+      
+      if (Object.keys(newStitched).length > 0) {
+        setStitchedImages(prev => ({
+          ...prev,
+          ...newStitched
+        }));
+      }
+    });
+    
+  }, [isMultiTile, activeTileIDs.join(','), availableTiles]);
+
+  // STATISTICS CALCULATION
+  useEffect(() => {
+    if (!activeTileIDs.length) {
       setTileStats(null);
       setTemporalStats(null);
       setComparativeStats(null);
@@ -567,23 +1089,37 @@ export default function App() {
       return;
     }
 
-    console.log('📊 Calculating statistics for', activeTileID);
-
-    // Use a ref or local variable to prevent recreating objects
     const yearlyStats = {};
     
-    YEARS.forEach(year => {
-      const geojson = allNetworkData[activeTileID][year];
-      if (geojson) {
-        yearlyStats[year] = calculateGeoJSONStats(geojson, activeTileData.bounds);
+    let bounds;
+    if (isMultiTile) {
+      bounds = getCombinedNetworkBounds(activeTileIDs, availableTiles);
+    } else {
+      const tile = availableTiles?.find(t => t.tile_id === activeTileIDs[0]);
+      bounds = tile?.bounds;
+    }
+    
+    if (!bounds) return;
+    
+    // Only calculate stats for selected years
+    selectedYears.forEach(year => {
+      if (isMultiTile) {
+        const mergedGeoJSON = mergeGeoJSON(activeTileIDs, year, allNetworkData);
+        if (mergedGeoJSON && mergedGeoJSON.features.length > 0) {
+          yearlyStats[year] = calculateGeoJSONStats(mergedGeoJSON, bounds);
+        }
+      } else {
+        const geojson = allNetworkData[activeTileIDs[0]]?.[year];
+        if (geojson) {
+          yearlyStats[year] = calculateGeoJSONStats(geojson, bounds);
+        }
       }
     });
 
-    const temporal = calculateTemporalStats(yearlyStats, YEARS);
-    const comparative = calculateComparativeStats(yearlyStats, YEARS);
-    const detectedInsights = generateInsights(yearlyStats, temporal, YEARS);
+    const temporal = calculateTemporalStats(yearlyStats, selectedYears);
+    const comparative = calculateComparativeStats(yearlyStats, selectedYears);
+    const detectedInsights = generateInsights(yearlyStats, temporal, selectedYears);
 
-    // Only update if values actually changed
     setTileStats(prev => {
       const hasChanged = JSON.stringify(prev) !== JSON.stringify(yearlyStats);
       return hasChanged ? yearlyStats : prev;
@@ -604,21 +1140,51 @@ export default function App() {
       return hasChanged ? detectedInsights : prev;
     });
 
-  }, [activeTileID, allNetworkData, activeTileData]); // Removed 'years' from dependencies
+  }, [activeTileIDs.join(','), allNetworkData, isMultiTile, availableTiles, selectedYears.join(',')]);
 
   // HANDLERS
   const handleGoBack = () => {
       setLastVisitedTileID(activeTileID);
       setActiveTileID(null);
-      setMapInitialized(false); 
+      setMapInitialized(false);
       setIsControlsOpen(false);
       setIsStatsOpen(false);
+      setSelectionStart(null);
+      setPreviewTiles([]);
+      // Don't reset opacity here - will be set correctly on next selection
   };
   
+  // Modified to intercept multi-tile selections and show warning
   const setActiveTileAndZoom = (tileID) => {
-    setCurrentYear(2024);
-    setActiveTileID(tileID);
+    const isMultiTileSelection = Array.isArray(tileID) && tileID.length > 1;
+    
+    if (isMultiTileSelection) {
+      // Show warning dialog first
+      setPendingMultiTileSelection(tileID);
+      setShowMultiTileWarning(true);
+    } else {
+      // Single tile - restore saved single-tile opacity
+      setCurrentYear(2024);
+      setSatelliteOpacity(singleTileOpacity);
+      setActiveTileID(tileID);
+    }
   }
+  
+  const handleMultiTileWarningAccept = () => {
+    setShowMultiTileWarning(false);
+    setCurrentYear(2024);
+    // ALWAYS set to 10% for multi-tile (2+ tiles)
+    setSatelliteOpacity(0.1);
+    setActiveTileID(pendingMultiTileSelection);
+    setPendingMultiTileSelection(null);
+  };
+  
+  const handleMultiTileWarningCancel = () => {
+    setShowMultiTileWarning(false);
+    setPendingMultiTileSelection(null);
+    setSelectionStart(null);
+    setPreviewTiles([]);
+  };
 
   const toggleNetworkVisible = (newValue) => {
     setIsNetworkVisible(newValue);
@@ -656,15 +1222,31 @@ export default function App() {
     };
   }, [layers, networkFillOpacity, layerColors]);
 
-  const parseTileName = (name) => {
-    const match = name.match(/\(R(\d+)C(\d+)\)/);
-    if (match) {
-      return { row: parseInt(match[1]), col: parseInt(match[2]) };
-    }
-    return null;
+  // Year filter handler
+  const toggleYear = (year) => {
+    setSelectedYears(prev => {
+      const newYears = prev.includes(year) 
+        ? prev.filter(y => y !== year)
+        : [...prev, year].sort((a, b) => a - b);
+      
+      // Must have at least one year selected
+      if (newYears.length === 0) {
+        return prev;
+      }
+      
+      // If current year is deselected, switch to nearest selected year
+      if (!newYears.includes(currentYear)) {
+        const nearestYear = newYears.reduce((prev, curr) => 
+          Math.abs(curr - currentYear) < Math.abs(prev - currentYear) ? curr : prev
+        );
+        setCurrentYear(nearestYear);
+      }
+      
+      return newYears;
+    });
   };
 
-  // INITIAL LOADING STATE (tiles index only)
+  // INITIAL LOADING STATE
   if (!availableTiles || !currentBounds) {
       return (
           <div style={{
@@ -701,6 +1283,15 @@ export default function App() {
       flexDirection: 'column',
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
     }}>
+      {/* Multi-Tile Warning Dialog */}
+      {showMultiTileWarning && (
+        <MultiTileWarningDialog 
+          onAccept={handleMultiTileWarningAccept}
+          onCancel={handleMultiTileWarningCancel}
+          theme={theme}
+        />
+      )}
+      
       {/* Header */}
       {!isAreaSelected && (
         <div style={{
@@ -709,24 +1300,58 @@ export default function App() {
           color: 'white',
           boxShadow: theme.shadowMd,
           transition: 'all 0.3s ease',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
         }}>
-          <h1 style={{ margin: 0, fontSize: '28px', fontWeight: '600' }}>
-            NYC Sidewalk Time Machine
-          </h1>
-          <p style={{ margin: '5px 0 0 0', opacity: 0.9, fontSize: '14px' }}>
-            {availableTiles.length} regions available • Double-click any area to explore
-            {lastVisitedTileID && (
-              <span style={{ 
-                marginLeft: '8px', 
-                padding: '2px 8px', 
-                background: 'rgba(251, 191, 36, 0.3)',
-                borderRadius: '4px',
-                fontSize: '13px'
-              }}>
-                Last visited highlighted in gold
-              </span>
-            )}
-          </p>
+          <div>
+            <h1 style={{ margin: 0, fontSize: '28px', fontWeight: '600' }}>
+              NYC Sidewalk Time Machine
+            </h1>
+            <p style={{ margin: '5px 0 0 0', opacity: 0.9, fontSize: '14px' }}>
+              {availableTiles.length} regions available • Double-click any area to explore
+              {lastVisitedTileID && (
+                <span style={{ 
+                  marginLeft: '8px', 
+                  padding: '2px 8px', 
+                  background: 'rgba(251, 191, 36, 0.3)',
+                  borderRadius: '4px',
+                  fontSize: '13px'
+                }}>
+                  Last visited: {Array.isArray(lastVisitedTileID) 
+                    ? `${lastVisitedTileID.length} tiles` 
+                    : '1 tile'} (highlighted in gold)
+                </span>
+              )}
+            </p>
+          </div>
+          
+          {/* Multi-Tile Toggle Button */}
+          <button
+            onClick={() => {
+              const newMode = !isMultiTileMode;
+              setIsMultiTileMode(newMode);
+              setSelectionStart(null);
+              setPreviewTiles([]);
+            }}
+            style={{
+              padding: '10px 20px',
+              background: isMultiTileMode ? '#10b981' : 'rgba(255, 255, 255, 0.2)',
+              color: 'white',
+              border: isMultiTileMode ? '2px solid #059669' : '2px solid rgba(255, 255, 255, 0.3)',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: '600',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              transition: 'all 0.2s'
+            }}
+          >
+            <span style={{ fontSize: '18px' }}>🔲🔲</span>
+            Multi-Select {isMultiTileMode ? '(ON)' : '(OFF)'}
+          </button>
         </div>
       )}
       
@@ -784,10 +1409,17 @@ export default function App() {
             lastVisitedTile={lastVisitedTileID}
             hoveredTile={hoveredTileID}
             setHoveredTile={setHoveredTileID}
+            isMultiTileMode={isMultiTileMode}
+            selectionStart={selectionStart}
+            setSelectionStart={setSelectionStart}
+            previewTiles={previewTiles}
+            setPreviewTiles={setPreviewTiles}
+            stitchedImages={stitchedImages}
+            allNetworkData={allNetworkData}
           />
         </MapContainer>
         
-        {/* LOADING SPINNER - Appears when tile data is being fetched */}
+        {/* LOADING SPINNER */}
         {isLoading && isAreaSelected && (
           <div style={{
             position: 'absolute',
@@ -813,7 +1445,6 @@ export default function App() {
               alignItems: 'center',
               gap: '15px'
             }}>
-              {/* Spinner */}
               <div style={{
                 width: '50px',
                 height: '50px',
@@ -828,7 +1459,7 @@ export default function App() {
                 fontSize: '16px',
                 fontWeight: '500'
               }}>
-                Loading tile data...
+                Loading {isMultiTile ? 'multi-tile' : 'tile'} data...
               </div>
               
               <div style={{
@@ -848,6 +1479,12 @@ export default function App() {
               @keyframes fadeIn {
                 from { opacity: 0; }
                 to { opacity: 1; }
+              }
+              
+              /* Theme-aware Leaflet container background */
+              .leaflet-container {
+                background: ${theme.background} !important;
+                transition: background 0.3s ease;
               }
             `}</style>
           </div>
@@ -892,73 +1529,113 @@ export default function App() {
                 flexDirection: 'column',
                 gap: '10px'
             }}>
-                {/* Settings Button */}
-                <button
-                    onClick={() => {
-                        if (isControlsOpen) {
-                            // Close if already open (toggle off)
-                            setIsControlsOpen(false);
-                        } else {
-                            // Open and close stats
-                            setIsControlsOpen(true);
-                            setIsStatsOpen(false);
-                        }
-                    }}
-                    style={{
-                        width: '44px',
-                        height: '44px',
-                        background: isControlsOpen ? theme.primary : theme.surface,
-                        color: isControlsOpen ? 'white' : theme.primary,
-                        border: 'none',
-                        borderRadius: '8px',
-                        boxShadow: theme.shadowMd,
-                        cursor: 'pointer',
-                        fontSize: '20px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        transition: '0.3s ease-in-out'
-                    }}
-                    title="Map Settings"
-                >
-                    ⚙️
-                </button>
+                {/* Settings Button with Tooltip */}
+                <div style={{ position: 'relative' }}>
+                  <button
+                      onClick={() => {
+                          if (isControlsOpen) {
+                              setIsControlsOpen(false);
+                          } else {
+                              setIsControlsOpen(true);
+                              setIsStatsOpen(false);
+                          }
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.nextElementSibling.style.opacity = '1'}
+                      onMouseLeave={(e) => e.currentTarget.nextElementSibling.style.opacity = '0'}
+                      style={{
+                          width: '44px',
+                          height: '44px',
+                          background: isControlsOpen ? theme.primary : theme.surface,
+                          color: isControlsOpen ? 'white' : theme.primary,
+                          border: 'none',
+                          borderRadius: '8px',
+                          boxShadow: theme.shadowMd,
+                          cursor: 'pointer',
+                          fontSize: '20px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          transition: '0.3s ease-in-out'
+                      }}
+                  >
+                      ⚙️
+                  </button>
+                  {/* Tooltip */}
+                  <div style={{
+                    position: 'absolute',
+                    right: '52px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: theme.tooltipBg,
+                    color: theme.textPrimary,
+                    padding: '4px 8px',
+                    borderRadius: '4px',
+                    fontSize: '11px',
+                    whiteSpace: 'nowrap',
+                    opacity: '0',
+                    pointerEvents: 'none',
+                    transition: 'opacity 0.2s',
+                    boxShadow: theme.shadowMd
+                  }}>
+                    Map Settings
+                  </div>
+                </div>
 
-                {/* Statistics Button */}
-                <button
-                    onClick={() => {
-                        if (isStatsOpen) {
-                            // Close if already open (toggle off)
-                            setIsStatsOpen(false);
-                        } else {
-                            // Open and close settings
-                            setIsStatsOpen(true);
-                            setIsControlsOpen(false);
-                        }
-                    }}
-                    style={{
-                        width: '44px',
-                        height: '44px',
-                        background: isStatsOpen ? theme.primary : theme.surface,
-                        color: isStatsOpen ? 'white' : theme.primary,
-                        border: 'none',
-                        borderRadius: '8px',
-                        boxShadow: theme.shadowMd,
-                        cursor: 'pointer',
-                        fontSize: '20px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        transition: '0.3s ease-in-out'
-                    }}
-                    title="Statistics"
-                >
-                    📊
-                </button>
+                {/* Statistics Button with Tooltip */}
+                <div style={{ position: 'relative' }}>
+                  <button
+                      onClick={() => {
+                          if (isStatsOpen) {
+                              setIsStatsOpen(false);
+                          } else {
+                              setIsStatsOpen(true);
+                              setIsControlsOpen(false);
+                          }
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.nextElementSibling.style.opacity = '1'}
+                      onMouseLeave={(e) => e.currentTarget.nextElementSibling.style.opacity = '0'}
+                      style={{
+                          width: '44px',
+                          height: '44px',
+                          background: isStatsOpen ? theme.primary : theme.surface,
+                          color: isStatsOpen ? 'white' : theme.primary,
+                          border: 'none',
+                          borderRadius: '8px',
+                          boxShadow: theme.shadowMd,
+                          cursor: 'pointer',
+                          fontSize: '20px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          transition: '0.3s ease-in-out'
+                      }}
+                  >
+                      📊
+                  </button>
+                  {/* Tooltip */}
+                  <div style={{
+                    position: 'absolute',
+                    right: '52px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: theme.tooltipBg,
+                    color: theme.textPrimary,
+                    padding: '4px 8px',
+                    borderRadius: '4px',
+                    fontSize: '11px',
+                    whiteSpace: 'nowrap',
+                    opacity: '0',
+                    pointerEvents: 'none',
+                    transition: 'opacity 0.2s',
+                    boxShadow: theme.shadowMd
+                  }}>
+                    Statistics
+                  </div>
+                </div>
             </div>
         )}
 
-        {/* SETTINGS PANEL (Map Controls) */}
+        {/* SETTINGS PANEL */}
         {isAreaSelected && (
             <div style={{
                 position: 'absolute',
@@ -979,7 +1656,6 @@ export default function App() {
                     color: theme.textPrimary,
                     transition: 'all 0.3s ease'
                 }}>
-                    {/* Dark Mode Toggle */}
                     <div style={{ marginBottom: '20px', paddingBottom: '15px', borderBottom: `1px solid ${theme.divider}` }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -1069,6 +1745,7 @@ export default function App() {
                             currentColor={layerColors[name]}
                             onColorChange={(color) => handleColorChange(name, color)}
                             layerName={name}
+                            theme={theme}
                           />
                         </div>
                     ))}
@@ -1084,7 +1761,14 @@ export default function App() {
                         max="1"
                         step="0.01"
                         value={satelliteOpacity}
-                        onChange={(e) => setSatelliteOpacity(parseFloat(e.target.value))}
+                        onChange={(e) => {
+                          const newOpacity = parseFloat(e.target.value);
+                          setSatelliteOpacity(newOpacity);
+                          // Save to single-tile memory if not in multi-tile mode
+                          if (!isMultiTile) {
+                            setSingleTileOpacity(newOpacity);
+                          }
+                        }}
                         style={{ width: '100%', cursor: 'pointer' }}
                     />
                     <div style={{ fontSize: '12px', color: '#666', marginTop: '4px', textAlign: 'center' }}>
@@ -1137,8 +1821,9 @@ export default function App() {
                         comparativeStats={comparativeStats}
                         insights={insights}
                         currentYear={currentYear}
-                        years={YEARS}
+                        years={selectedYears}
                         theme={theme}
+                        layerColors={layerColors}
                     />
                 </div>
             </div>
@@ -1158,12 +1843,164 @@ export default function App() {
                     color: theme.textPrimary,
                     transition: 'all 0.3s ease'
                 }}>
-                    <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+                    <div style={{ maxWidth: '1200px', margin: '0 auto', position: 'relative' }}>
+                        {/* Year Filter Button */}
+                        <div style={{ position: 'absolute', right: 0, top: 0 }}>
+                          <div ref={yearFilterRef} style={{ position: 'relative' }}>
+                            <button
+                              onClick={() => setIsYearFilterOpen(!isYearFilterOpen)}
+                              onMouseEnter={(e) => e.currentTarget.querySelector('.tooltip').style.opacity = '1'}
+                              onMouseLeave={(e) => e.currentTarget.querySelector('.tooltip').style.opacity = '0'}
+                              style={{
+                                padding: '8px 12px',
+                                background: isYearFilterOpen ? theme.primary : theme.buttonHover,
+                                color: isYearFilterOpen ? 'white' : theme.textPrimary,
+                                border: `1px solid ${theme.border}`,
+                                borderRadius: '6px',
+                                cursor: 'pointer',
+                                fontSize: '12px',
+                                fontWeight: '600',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                transition: 'all 0.2s'
+                              }}
+                            >
+                              📅 {selectedYears.length}/{YEARS.length} Years
+                              <span className="tooltip" style={{
+                                position: 'absolute',
+                                bottom: '110%',
+                                right: '0',
+                                background: theme.tooltipBg,
+                                color: theme.textPrimary,
+                                padding: '4px 8px',
+                                borderRadius: '4px',
+                                fontSize: '11px',
+                                whiteSpace: 'nowrap',
+                                opacity: '0',
+                                pointerEvents: 'none',
+                                transition: 'opacity 0.2s',
+                                boxShadow: theme.shadowMd
+                              }}>
+                                Filter Years
+                              </span>
+                            </button>
+                            
+                            {/* Year Filter Dropdown */}
+                            {isYearFilterOpen && (
+                              <div style={{
+                                position: 'absolute',
+                                bottom: '110%',
+                                right: 0,
+                                marginBottom: '8px',
+                                background: theme.surface,
+                                border: `1px solid ${theme.border}`,
+                                borderRadius: '8px',
+                                padding: '12px',
+                                boxShadow: theme.shadowLg,
+                                minWidth: '200px',
+                                maxHeight: '300px',
+                                overflowY: 'auto',
+                                animation: 'fadeIn 0.2s ease-out',
+                                zIndex: 1001
+                              }}>
+                                <div style={{
+                                  fontSize: '12px',
+                                  fontWeight: '600',
+                                  marginBottom: '8px',
+                                  color: theme.textSecondary,
+                                  display: 'flex',
+                                  justifyContent: 'space-between',
+                                  alignItems: 'center'
+                                }}>
+                                  <span>Select Years</span>
+                                  <span style={{ fontSize: '10px', fontWeight: '400' }}>
+                                    (min: 1)
+                                  </span>
+                                </div>
+                                
+                                {/* Select All Checkbox */}
+                                {selectedYears.length < YEARS.length && (
+                                  <label
+                                    style={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      padding: '8px',
+                                      cursor: 'pointer',
+                                      borderRadius: '6px',
+                                      background: theme.primary + '15',
+                                      border: `1px solid ${theme.primary}40`,
+                                      marginBottom: '8px',
+                                      transition: 'all 0.2s'
+                                    }}
+                                    onMouseEnter={(e) => e.currentTarget.style.background = theme.primary + '25'}
+                                    onMouseLeave={(e) => e.currentTarget.style.background = theme.primary + '15'}
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={false}
+                                      onChange={() => setSelectedYears(YEARS)}
+                                      style={{
+                                        marginRight: '8px',
+                                        cursor: 'pointer',
+                                        accentColor: theme.primary
+                                      }}
+                                    />
+                                    <span style={{
+                                      fontSize: '13px',
+                                      fontWeight: '600',
+                                      color: theme.primary
+                                    }}>
+                                      ✓ Select All Years
+                                    </span>
+                                  </label>
+                                )}
+                                
+                                {YEARS.map(year => (
+                                  <label
+                                    key={year}
+                                    style={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      padding: '6px 8px',
+                                      cursor: 'pointer',
+                                      borderRadius: '4px',
+                                      transition: 'background 0.2s',
+                                      background: year === currentYear ? theme.background : 'transparent'
+                                    }}
+                                    onMouseEnter={(e) => e.currentTarget.style.background = theme.background}
+                                    onMouseLeave={(e) => e.currentTarget.style.background = year === currentYear ? theme.background : 'transparent'}
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={selectedYears.includes(year)}
+                                      onChange={() => toggleYear(year)}
+                                      disabled={selectedYears.length === 1 && selectedYears.includes(year)}
+                                      style={{
+                                        marginRight: '8px',
+                                        cursor: selectedYears.length === 1 && selectedYears.includes(year) ? 'not-allowed' : 'pointer'
+                                      }}
+                                    />
+                                    <span style={{
+                                      fontSize: '13px',
+                                      fontWeight: year === currentYear ? '600' : '400',
+                                      color: selectedYears.includes(year) ? theme.textPrimary : theme.textTertiary
+                                    }}>
+                                      {year}
+                                    </span>
+                                  </label>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        
                         <div style={{ 
                             display: 'flex', 
                             justifyContent: 'space-between', 
                             alignItems: 'center',
-                            marginBottom: '15px'
+                            marginBottom: '15px',
+                            paddingRight: '140px' // Space for year filter button
                         }}>
                             <h2 style={{ margin: 0, fontSize: '32px', fontWeight: '700', color: theme.primary }}>
                                 {currentYear}
@@ -1186,9 +2023,9 @@ export default function App() {
                         <input
                             type="range"
                             min={0}
-                            max={YEARS.length - 1}
-                            value={YEARS.indexOf(currentYear)}
-                            onChange={(e) => setCurrentYear(YEARS[parseInt(e.target.value)])}
+                            max={selectedYears.length - 1}
+                            value={selectedYears.indexOf(currentYear)}
+                            onChange={(e) => setCurrentYear(selectedYears[parseInt(e.target.value)])}
                             style={{
                                 width: '100%',
                                 height: '8px',
@@ -1196,7 +2033,7 @@ export default function App() {
                                 outline: 'none',
                                 cursor: 'pointer',
                                 WebkitAppearance: 'none',
-                                background: `linear-gradient(to right, #667eea ${(YEARS.indexOf(currentYear) / (YEARS.length - 1)) * 100}%, #e0e0e0 ${(YEARS.indexOf(currentYear) / (YEARS.length - 1)) * 100}%)`
+                                background: `linear-gradient(to right, #667eea ${(selectedYears.indexOf(currentYear) / (selectedYears.length - 1)) * 100}%, #e0e0e0 ${(selectedYears.indexOf(currentYear) / (selectedYears.length - 1)) * 100}%)`
                             }}
                         />
                         
@@ -1205,7 +2042,7 @@ export default function App() {
                             justifyContent: 'space-between',
                             marginTop: '10px'
                         }}>
-                            {YEARS.map(year => (
+                            {selectedYears.map(year => (
                                 <div 
                                     key={year}
                                     onClick={() => setCurrentYear(year)}

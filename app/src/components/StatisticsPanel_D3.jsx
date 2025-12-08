@@ -1,17 +1,22 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
 
-const COLORS = {
+// Default colors (fallback only)
+const DEFAULT_COLORS = {
   sidewalk: '#4A90E2',
   road: '#FF6B6B',
   crosswalk: '#4ECDC4'
 };
 
 // ============================================================================
-// TEMPORAL TREND LINE CHART - DARK MODE AWARE
+// TEMPORAL TREND LINE CHART (D3.js) - STABLE VERSION
 // ============================================================================
-export function TemporalTrendChart({ yearlyStats, years, width = 600, height = 300, theme }) {
+export function TemporalTrendChart({ yearlyStats, years, width = 600, height = 300, theme, layerColors }) {
   const svgRef = useRef();
+  const isInitialMount = useRef(true);
+  
+  // Use layerColors prop or fallback to defaults
+  const COLORS = layerColors || DEFAULT_COLORS;
 
   useEffect(() => {
     if (!yearlyStats || !years || !svgRef.current) return;
@@ -180,7 +185,9 @@ export function TemporalTrendChart({ yearlyStats, years, width = 600, height = 3
 
     legend.transition().duration(500).delay(1800).attr('opacity', 1);
 
-  }, [yearlyStats, years, width, height, theme]);
+    isInitialMount.current = false;
+
+  }, [yearlyStats, years, width, height, theme, COLORS]); // Corrected dependencies and closure
 
   return (
     <div style={{ 
@@ -202,10 +209,13 @@ export function TemporalTrendChart({ yearlyStats, years, width = 600, height = 3
 }
 
 // ============================================================================
-// COMPARATIVE BAR CHART - DARK MODE AWARE
+// COMPARATIVE BAR CHART (D3.js) - STABLE VERSION
 // ============================================================================
-export function ComparativeBarChart({ comparativeStats, width = 600, height = 300, theme }) {
+export function ComparativeBarChart({ comparativeStats, width = 600, height = 300, theme, layerColors }) {
   const svgRef = useRef();
+  
+  // Use layerColors prop or fallback to defaults
+  const COLORS = layerColors || DEFAULT_COLORS;
 
   useEffect(() => {
     if (!comparativeStats || comparativeStats.length === 0 || !svgRef.current) return;
@@ -219,6 +229,7 @@ export function ComparativeBarChart({ comparativeStats, width = 600, height = 30
 
     const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
 
+    // Scales
     const xScale = d3.scaleBand()
       .domain(comparativeStats.map(d => d.year))
       .range([0, innerWidth])
@@ -309,7 +320,7 @@ export function ComparativeBarChart({ comparativeStats, width = 600, height = 30
           });
       });
 
-  }, [comparativeStats, width, height, theme]);
+  }, [comparativeStats, width, height, theme, COLORS]);
 
   return (
     <div style={{ 
@@ -344,21 +355,17 @@ export function ComparativeBarChart({ comparativeStats, width = 600, height = 30
 }
 
 // ============================================================================
-// RADIAL CHART - DARK MODE AWARE
+// RADIAL PROGRESS CHART (Current Year Snapshot) - STABLE VERSION
 // ============================================================================
-export function InfrastructureRadial({ currentStats, size = 200, theme, shouldAnimate = true }) {
+export function InfrastructureRadial({ currentStats, size = 200, theme, layerColors, shouldAnimate = true }) {
   const svgRef = useRef();
+  const containerRef = useRef();
+  
+  // Use layerColors prop or fallback to defaults
+  const COLORS = layerColors || DEFAULT_COLORS;
 
   useEffect(() => {
     if (!currentStats || !svgRef.current) return;
-
-    const metrics = [
-      { label: 'Sidewalks', value: currentStats.sidewalk?.totalLength || 0, color: COLORS.sidewalk },
-      { label: 'Roads', value: currentStats.road?.totalLength || 0, color: COLORS.road },
-      { label: 'Crosswalks', value: (currentStats.crosswalk?.featureCount || 0) * 0.05, color: COLORS.crosswalk }
-    ];
-
-    const total = d3.sum(metrics, d => d.value);
 
     const svg = d3.select(svgRef.current);
     svg.selectAll('*').remove();
@@ -367,6 +374,14 @@ export function InfrastructureRadial({ currentStats, size = 200, theme, shouldAn
     const innerRadius = radius * 0.6;
 
     const g = svg.append('g').attr('transform', `translate(${radius},${radius})`);
+
+    const metrics = [
+      { label: 'Sidewalks', value: currentStats.sidewalk?.totalLength || 0, color: COLORS.sidewalk },
+      { label: 'Roads', value: currentStats.road?.totalLength || 0, color: COLORS.road },
+      { label: 'Crosswalks', value: (currentStats.crosswalk?.featureCount || 0) * 0.05, color: COLORS.crosswalk }
+    ];
+
+    const total = d3.sum(metrics, d => d.value);
 
     if (total === 0) {
       g.append('text')
@@ -447,7 +462,7 @@ export function InfrastructureRadial({ currentStats, size = 200, theme, shouldAn
       centerText.attr('opacity', 1);
     }
 
-  }, [currentStats, size, theme, shouldAnimate]);
+  }, [currentStats, size, theme, COLORS, shouldAnimate]);
 
   return (
     <div style={{ 
@@ -466,7 +481,7 @@ export function InfrastructureRadial({ currentStats, size = 200, theme, shouldAn
 }
 
 // ============================================================================
-// STATISTICS PANEL - DARK MODE AWARE
+// STATISTICS PANEL (Main Component)
 // ============================================================================
 export default function StatisticsPanel({ 
   yearlyStats, 
@@ -475,16 +490,17 @@ export default function StatisticsPanel({
   insights,
   currentYear,
   years,
-  theme
+  theme,
+  layerColors
 }) {
   const [activeTab, setActiveTab] = useState('overview');
   const [tabKey, setTabKey] = useState(0);
-  const [lastTabSwitch, setLastTabSwitch] = useState(Date.now()); // Track when tab was switched
+  const [lastTabSwitch, setLastTabSwitch] = useState(Date.now());
 
   const handleTabChange = (newTab) => {
     setActiveTab(newTab);
-    setLastTabSwitch(Date.now()); // Update timestamp on tab switch
-    setTabKey(prev => prev + 1); // Increment key to force re-mount
+    setLastTabSwitch(Date.now());
+    setTabKey(prev => prev + 1);
   };
 
   if (!yearlyStats || Object.keys(yearlyStats).length === 0) {
@@ -554,14 +570,24 @@ export default function StatisticsPanel({
             temporalStats={temporalStats} 
             currentYear={currentYear}
             theme={theme}
+            layerColors={layerColors}
             lastTabSwitch={lastTabSwitch}
           />
         )}
         {activeTab === 'trends' && (
-          <TrendsTab key={`trends-${tabKey}`} yearlyStats={yearlyStats} years={years} theme={theme} />
+          <TrendsTab 
+            yearlyStats={yearlyStats} 
+            years={years}
+            theme={theme}
+            layerColors={layerColors}
+          />
         )}
         {activeTab === 'compare' && (
-          <CompareTab key={`compare-${tabKey}`} comparativeStats={comparativeStats} theme={theme} />
+          <CompareTab 
+            comparativeStats={comparativeStats}
+            theme={theme}
+            layerColors={layerColors}
+          />
         )}
       </div>
     </div>
@@ -569,9 +595,12 @@ export default function StatisticsPanel({
 }
 
 // Tab Components
-function OverviewTab({ currentStats, temporalStats, currentYear, theme, lastTabSwitch }) {
+function OverviewTab({ currentStats, temporalStats, currentYear, theme, layerColors, lastTabSwitch }) {
   const [shouldAnimate, setShouldAnimate] = useState(true);
   const prevYearRef = useRef(currentYear);
+  
+  // Use layerColors prop or fallback to defaults
+  const COLORS = layerColors || DEFAULT_COLORS;
 
   useEffect(() => {
     // If year changed (slider moved), don't animate
@@ -668,6 +697,7 @@ function OverviewTab({ currentStats, temporalStats, currentYear, theme, lastTabS
         currentStats={currentStats} 
         size={200} 
         theme={theme} 
+        layerColors={layerColors}
         shouldAnimate={shouldAnimate}
       />
       
@@ -687,15 +717,22 @@ function OverviewTab({ currentStats, temporalStats, currentYear, theme, lastTabS
   );
 }
 
-function TrendsTab({ yearlyStats, years, theme }) {
+function TrendsTab({ yearlyStats, years, theme, layerColors }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-      <TemporalTrendChart yearlyStats={yearlyStats} years={years} width={600} height={300} theme={theme} />
+      <TemporalTrendChart 
+        yearlyStats={yearlyStats} 
+        years={years} 
+        width={600} 
+        height={300}
+        theme={theme}
+        layerColors={layerColors}
+      />
     </div>
   );
 }
 
-function CompareTab({ comparativeStats, theme }) {
+function CompareTab({ comparativeStats, theme, layerColors }) {
   if (!comparativeStats || comparativeStats.length === 0) {
     return <div style={{ padding: '20px', textAlign: 'center', color: theme.textSecondary }}>
       No comparative data available
@@ -704,7 +741,75 @@ function CompareTab({ comparativeStats, theme }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-      <ComparativeBarChart comparativeStats={comparativeStats} width={600} height={300} theme={theme} />
+      <ComparativeBarChart 
+        comparativeStats={comparativeStats} 
+        width={600} 
+        height={300}
+        theme={theme}
+        layerColors={layerColors}
+      />
+    </div>
+  );
+}
+
+function InsightsTab({ insights, temporalStats, theme }) {
+  // Define fallback colors for this component to prevent ReferenceError
+  const COLORS = DEFAULT_COLORS;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      <div style={{
+        background: 'white',
+        padding: '16px',
+        borderRadius: '10px',
+        boxShadow: '0 2px 6px rgba(0,0,0,0.06)'
+      }}>
+        <h3 style={{ margin: '0 0 12px 0', fontSize: '14px', fontWeight: '600' }}>
+          📌 Key Findings
+        </h3>
+        {Object.entries(temporalStats || {}).map(([type, data]) => (
+          <div key={type} style={{ 
+            marginBottom: '10px',
+            padding: '10px',
+            background: '#f8f9fa',
+            borderRadius: '6px',
+            borderLeft: `3px solid ${COLORS[type]}`
+          }}>
+            <div style={{ fontWeight: '600', textTransform: 'capitalize', fontSize: '13px' }}>
+              {type}
+            </div>
+            <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
+              <strong style={{ color: data.trend === 'increasing' ? '#52BE80' : '#EC7063' }}>
+                {data.trend}
+              </strong> ({data.growthRate > 0 ? '+' : ''}{data.growthRate?.toFixed(1)}%)
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {insights && insights.length > 0 && (
+        <div style={{
+          background: 'white',
+          padding: '16px',
+          borderRadius: '10px',
+          boxShadow: '0 2px 6px rgba(0,0,0,0.06)'
+        }}>
+          <h3 style={{ margin: '0 0 12px 0', fontSize: '14px', fontWeight: '600' }}>
+            🔍 Detected Patterns
+          </h3>
+          {insights.map((insight, idx) => (
+            <div key={idx} style={{
+              padding: '10px',
+              marginBottom: '8px',
+              background: '#f8f9fa',
+              borderRadius: '6px',
+              fontSize: '12px'
+            }}>
+              {insight.message}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
