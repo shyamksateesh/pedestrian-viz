@@ -10,1184 +10,544 @@
 
 > A full-stack geospatial visualization tool combining computer vision, GIS processing, and interactive web technologies to analyze two decades of New York City's pedestrian infrastructure changes at unprecedented granularity.
 
-[Live Demo](#) | [Documentation](#documentation) | [Report Issues](../../issues)
+[Live Demo](#) | [Video Walkthrough](#) | [Report Issues](../../issues)
 
 ---
 
 ## 📸 Project Showcase
 
+<div align="center">
+
 ### Main Interface
 ![Main Interface](docs/images/main-interface.png)
-*Interactive map interface showing tile selection and network overlay*
+*Interactive tile-based map showing Manhattan's pedestrian networks with temporal controls*
 
-### Multi-Tile Selection
+### Multi-Tile Selection & Analysis
 ![Multi-Tile Selection](docs/images/multi-tile-selection.png)
-*Select up to 16 adjacent tiles for comparative analysis across Manhattan neighborhoods*
+*Select up to 16 adjacent tiles for neighborhood-scale comparative analysis*
 
-### Dark Mode
+### Dark Mode Support
 ![Dark Mode](docs/images/dark-mode.png)
-*Fully theme-aware interface with seamless dark mode support*
+*Fully theme-aware interface with smooth dark mode transitions*
 
-### Statistical Analysis
+### Statistical Insights
 ![Statistics Panel](docs/images/statistics-panel.png)
-*Comprehensive temporal trends and comparative metrics with animated D3.js visualizations*
+*Real-time D3.js visualizations showing temporal trends and infrastructure metrics*
 
-### Timeline Animation
+### Timeline Navigation
 ![Timeline Slider](docs/images/timeline-slider.png)
-*Smooth year-by-year navigation through 20 years of infrastructure data*
+*Seamless year-by-year navigation through 20 years of infrastructure evolution*
 
-### Network Layers
+### Layer Customization
 ![Network Layers](docs/images/network-layers.png)
-*Toggle between sidewalks, roads, and crosswalks with customizable colors and opacity*
+*Independent control of sidewalks, roads, and crosswalks with custom colors*
+
+</div>
 
 ---
 
-## 🎯 Project Overview
+## 🎯 Overview
+
+Understanding how urban pedestrian infrastructure evolves is critical for:
+- **Urban Planning**: Quantify infrastructure investment and identify gaps
+- **Accessibility Research**: Track ADA compliance and sidewalk coverage over time
+- **Policy Analysis**: Measure the impact of city initiatives on pedestrian safety
+- **Academic Research**: Provide high-resolution temporal data for urban studies
 
 ### The Challenge
 
-Understanding how urban infrastructure evolves over time is critical for urban planning, accessibility research, and policy-making. However, historical pedestrian infrastructure data is:
+Historical pedestrian infrastructure data is typically:
 - Scattered across municipal databases
-- Inconsistently formatted
-- Rarely visualized at high spatial resolution
-- Difficult to access for comparative temporal analysis
+- Inconsistently formatted across years
+- Rarely visualized at high spatial and temporal resolution
+- Inaccessible for comparative analysis
 
-### The Solution
+### Our Solution
 
-The NYC Sidewalk Time Machine addresses these challenges by:
+The NYC Sidewalk Time Machine provides:
 
-1. **Data Acquisition**: Downloading 20 years of high-resolution satellite imagery from NYC Open Data
-2. **Computer Vision**: Using the `tile2net` deep learning library to extract pedestrian network features
-3. **Geospatial Processing**: Converting predictions to georeferenced GeoJSON with coordinate system transformations
-4. **Interactive Visualization**: Building a React-based web application with tile-based navigation and temporal controls
-5. **Statistical Analysis**: Providing real-time metrics and trend visualizations using D3.js
+1. **Automated Data Processing**: Extract pedestrian networks from satellite imagery using deep learning
+2. **Interactive Visualization**: Explore 20 years of infrastructure data through an intuitive web interface
+3. **Real-Time Analysis**: Calculate metrics like density, coverage, and pedestrian-friendliness ratios
+4. **Flexible Comparison**: View single tiles for precision or combine up to 16 tiles for neighborhood analysis
 
 ---
 
-## 🏗️ Architecture Overview
+## 🏗️ System Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                         DATA PIPELINE                           │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  NYC Open Data (GeoTIFF) → tile2net (CV) → GeoJSON → React App  │
-│                                                                 │
-│  [Imagery: 512x512px]   [Segmentation]   [Networks]  [Viz]      │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────────┐
-│                      FRONTEND STACK                             │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  React.js ──┬──> React-Leaflet (Mapping)                        │
-│             ├──> D3.js (Statistics)                             │
-│             ├──> Turf.js (Spatial Analysis)                     │
-│             └──> Custom State Management                        │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────┐
+│                     DATA PIPELINE                          │
+├────────────────────────────────────────────────────────────┤
+│                                                            │
+│  NYC Open Data → tile2net → GeoJSON → React Visualization │
+│                                                            │
+│  [Satellite     [Computer   [Spatial    [Interactive      │
+│   Imagery]       Vision]     Data]       Maps & Charts]   │
+│                                                            │
+└────────────────────────────────────────────────────────────┘
 ```
+
+**Processing Pipeline**: Google Colab notebooks handle GPU-accelerated computer vision
+**Visualization Layer**: React + Leaflet + D3.js for interactive exploration
 
 ---
 
 ## ✨ Key Features
 
-### 🗺️ Interactive Mapping
-- **Tile-Based Navigation**: 512×512px tiles covering Manhattan's street network
-- **Single & Multi-Tile Modes**: View individual tiles or select up to 16 adjacent tiles
-- **Smart Tile Stitching**: Seamless canvas-based image composition with network alignment
-- **Coordinate Transformation**: Precise mapping between imagery and network coordinate systems
-- **Dynamic Bounds Calculation**: Automatic viewport adjustment for tile selections
+### 🗺️ **Interactive Mapping**
+- **512×512px Tile Grid**: High-resolution coverage of Manhattan
+- **Single & Multi-Tile Modes**: Analyze individual tiles or combine up to 16 for neighborhood views
+- **Smart Coordinate Transformation**: Precise alignment between imagery and network data
+- **Seamless Image Stitching**: Canvas-based composition for multi-tile selections
 
-### 📅 Temporal Analysis
-- **20-Year Timeline**: Data spanning 2004, 2006, 2008, 2010, 2012, 2014, 2016, 2018, 2020, 2022, 2024
-- **Year Filtering**: Select specific years for focused analysis
-- **Smooth Animations**: Animated transitions between time periods
-- **Change Detection**: Visual identification of infrastructure changes over time
+### 📅 **Temporal Analysis**
+- **20-Year Timeline**: Data from 2004, 2006, 2008, 2010, 2012, 2014, 2016, 2018, 2020, 2022, 2024
+- **Year Filtering**: Focus analysis on specific time periods
+- **Animated Transitions**: Smooth visual updates when changing years
 
-### 🎨 Customizable Visualization
-- **Network Layers**: Toggle sidewalks, roads, and crosswalks independently
-- **Color Customization**: 20-color palette picker for each network type
-- **Opacity Controls**: Separate controls for satellite imagery and network overlays
-- **Dark Mode**: Complete theme system with smooth transitions
-- **Responsive Design**: Adapts to different screen sizes and orientations
+### 🎨 **Customizable Visualization**
+- **Layer Controls**: Toggle sidewalks, roads, and crosswalks independently
+- **Color Palette**: 20-color preset picker plus custom hex input for each layer
+- **Opacity Sliders**: Separate controls for satellite imagery and network overlays
+- **Dark Mode**: Complete theming system with instant switching
 
-### 📊 Statistical Insights
-- **Temporal Trends**: Line charts showing infrastructure growth over 20 years
-- **Comparative Analysis**: Bar charts comparing pedestrian-friendliness ratios
-- **Radial Visualizations**: Donut charts showing network composition
-- **Real-Time Metrics**: Live calculation of length, density, and coverage statistics
-- **Animated Charts**: Smooth D3.js animations on data updates
+### 📊 **Statistical Insights**
+- **Temporal Trends**: Line charts showing infrastructure growth patterns
+- **Comparative Metrics**: Pedestrian-friendliness ratios and crosswalk density
+- **Real-Time Calculations**: Length, area, and density statistics computed on-the-fly
+- **Animated D3.js Charts**: Smooth transitions and interactive tooltips
 
-### 🔧 Advanced Capabilities
-- **Lazy Loading**: On-demand data fetching for improved performance
-- **State Persistence**: Session memory for UI preferences
-- **Multi-Tile Warnings**: User guidance for alignment limitations
-- **Gold Highlighting**: Last-visited tile indication
-- **Hover Previews**: Visual feedback for tile selection
-- **Network-First Rendering**: Prioritizes GeoJSON accuracy over imagery alignment
+### 🚀 **Performance Optimizations**
+- **Lazy Loading**: Networks and imagery loaded only when needed
+- **Session Caching**: Image stitching results cached for instant re-access
+- **Efficient Rendering**: React optimizations prevent unnecessary re-renders
 
 ---
 
-## 🛠️ Technologies Used
+## 🛠️ Technology Stack
 
-### Frontend Framework
-- **React 18.x** - Component-based UI with hooks
-- **Vite** - Fast development server and build tool
-- **ES6+ JavaScript** - Modern language features
+### Frontend
+- **React 18.x** - Component-based UI framework
+- **Vite** - Fast build tool and dev server
+- **React-Leaflet** - Interactive mapping
+- **Leaflet.js** - Geospatial visualization
+- **D3.js 7.x** - Statistical charts and animations
+- **Turf.js** - Spatial analysis and calculations
 
-### Mapping & Geospatial
-- **React-Leaflet 4.x** - React wrapper for Leaflet.js
-- **Leaflet 1.9.x** - Interactive mapping library
-- **Turf.js 7.x** - Advanced geospatial analysis
-  - Area calculations
-  - Length measurements
-  - Bounding box operations
-  - Coordinate transformations
-
-### Data Visualization
-- **D3.js 7.x** - Data-driven statistical visualizations
-  - Line charts with animation
-  - Bar charts with transitions
-  - Radial (donut) charts
-  - Interactive tooltips
-  - Axis generation
-
-### Backend Processing (Python)
-- **tile2net** - Deep learning-based street network extraction
+### Data Processing (Python/Colab)
+- **tile2net** - Deep learning for street network extraction
 - **GeoPandas** - Geospatial data manipulation
-- **Rasterio** - Raster data I/O and processing
+- **Rasterio** - Raster imagery processing
 - **Shapely** - Geometric operations
-- **GDAL** - Geospatial data abstraction library
-- **NumPy & Pandas** - Data processing and analysis
 
-### Development Tools
-- **ESLint** - Code quality enforcement
-- **Git** - Version control
-- **GitHub** - Code hosting and collaboration
+### Data Sources
+- **NYC Open Data** - High-resolution orthoimagery (0.5ft resolution)
+- **OpenStreetMap** - Base map tiles
 
 ---
 
-## 📂 Project Structure
+## 📂 Repository Structure
 
 ```
 pedestrian_viz/
-├── colab-notebooks/           # Data processing pipeline
-│   ├── 00_setup.ipynb        # Environment setup
-│   ├── 01_download_imagery.ipynb  # NYC Open Data acquisition
-│   ├── 02_tile2net_extraction.ipynb  # Network extraction
-│   └── 03_prepare_for_web.ipynb  # GeoJSON generation
-│
-├── src/
+├── app/                           # React application
 │   ├── components/
-│   │   └── StatisticsPanel_D3.jsx  # D3 visualizations
-│   │
+│   │   └── StatisticsPanel_D3.jsx
 │   ├── utils/
-│   │   ├── statsCalculator.js      # Metric computations
-│   │   └── theme.js                # Theme definitions
-│   │
-│   ├── App.jsx                      # Main application
-│   └── main.jsx                     # React entry point
+│   │   ├── statsCalculator.js
+│   │   └── theme.js
+│   ├── App.jsx
+│   ├── main.jsx
+│   └── public/data/               # Generated from notebooks
+│       ├── tiles_index.json
+│       ├── images/                # Satellite imagery by year
+│       └── networks/              # GeoJSON networks by year
 │
-├── public/
-│   └── data/
-│       ├── tiles_index.json         # Tile metadata
-│       ├── images/                  # Satellite imagery (by year)
-│       │   ├── 2004/
-│       │   ├── 2006/
-│       │   └── ...
-│       └── networks/                # GeoJSON networks (by year)
-│           ├── 2004/
-│           ├── 2006/
-│           └── ...
+├── notebooks/                     # Google Colab pipeline
+│   ├── 00_setup_and_config.ipynb
+│   ├── 01_tile2net_extract.ipynb
+│   └── 02_prepare_for_web.ipynb
 │
-├── docs/
-│   ├── images/                      # README images
-│   └── API.md                       # API documentation
-│
-├── package.json
-├── vite.config.js
+├── docs/images/                   # README screenshots
+├── scripts/                       # Utility scripts
 └── README.md
 ```
 
 ---
 
-## 🚀 Getting Started
+## 🚀 Quick Start
 
 ### Prerequisites
 
-- **Node.js** 18.x or higher ([Download](https://nodejs.org/))
-- **npm** 9.x or higher (comes with Node.js)
+- **Node.js** 18+ and **npm** ([Download](https://nodejs.org/))
 - **Git** ([Download](https://git-scm.com/))
-- *Optional*: **Python 3.10+** with **Google Colab** access (for data processing)
+- *Optional*: **Google Colab** account (for data processing)
 
-### Installation
+### 1. Clone Repository
 
-1. **Clone the Repository**
-   ```bash
-   git clone https://github.com/YOUR_USERNAME/pedestrian_viz.git
-   cd pedestrian_viz
-   ```
+```bash
+git clone https://github.com/shyamksateesh/pedestrian_viz.git
+cd pedestrian_viz
+```
 
-2. **Install Dependencies**
-   ```bash
-   npm install
-   ```
+### 2. Install Dependencies
 
-3. **Prepare Data Directory Structure**
-   ```bash
-   mkdir -p public/data/images
-   mkdir -p public/data/networks
-   ```
+```bash
+npm install
+```
 
-4. **Add Your Data**
-   - Place `tiles_index.json` in `public/data/`
-   - Organize imagery by year in `public/data/images/YYYY/`
-   - Organize GeoJSON by year in `public/data/networks/YYYY/`
-   
-   See [Data Processing](#data-processing-pipeline) for generation instructions.
+### 3. Get the Data
 
-5. **Start Development Server**
-   ```bash
-   npm run dev
-   ```
+**Option A: Use Pre-processed Data (Recommended)**
+- Download processed data package from [Releases](#)
+- Extract to `app/public/data/`
 
-6. **Open Application**
-   - Navigate to `http://localhost:5173`
-   - The application will hot-reload on code changes
+**Option B: Process Your Own Data**
+- See [Data Processing Pipeline](#data-processing-pipeline) below
+- Run the Colab notebooks to generate your own dataset
 
-### Building for Production
+### 4. Run Development Server
+
+```bash
+npm run dev
+```
+
+Navigate to `http://localhost:5173` 🎉
+
+### 5. Build for Production
 
 ```bash
 npm run build
 ```
 
-This creates an optimized production build in the `dist/` directory.
+Outputs to `dist/` directory ready for deployment.
 
 ---
 
 ## 📊 Data Processing Pipeline
 
-The data processing happens in **Google Colab** notebooks due to computational requirements and GPU access for the deep learning model.
+The data processing uses **Google Colab** notebooks for three key reasons:
 
-### Why Google Colab?
-
-1. **Free GPU Access** - tile2net benefits significantly from GPU acceleration
-2. **Pre-installed Libraries** - GDAL, rasterio, and geospatial tools work out-of-the-box
-3. **Persistent Storage** - Google Drive integration for large datasets
-4. **Reproducibility** - Notebooks serve as executable documentation
+1. **Free GPU Access**: tile2net requires GPU acceleration (6 hours → 20 minutes per year)
+2. **Pre-installed GIS Tools**: GDAL, rasterio, and geospatial libraries work out-of-the-box
+3. **Large-Scale Processing**: Handle 50+ GB of satellite imagery without local storage constraints
 
 ### Pipeline Overview
 
 ```
-┌──────────────┐     ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
-│   Notebook   │     │   Notebook   │     │   Notebook   │     │   Notebook   │
-│      00      │ --> │      01      │ --> │      02      │ --> │      03      │
-│    Setup     │     │   Download   │     │   Extract    │     │   Prepare    │
-└──────────────┘     └──────────────┘     └──────────────┘     └──────────────┘
-      ↓                     ↓                     ↓                     ↓
-  Environment         GeoTIFF Files        Network Data          Web-Ready
-  Configuration        (512x512px)        (Segmentation)        GeoJSON Files
+Notebook 00        Notebook 01           Notebook 02
+   Setup      →    tile2net Extract  →   Web Export
+                                          
+[Configure]    [NYC Imagery → Networks]  [tiles_index.json]
+[Install]      [512×512 tiles]           [GeoJSON files]
+[Dependencies] [GPU Processing]          [PNG images]
 ```
 
-### Notebook 00: Environment Setup
+### Notebook 00: Setup & Configuration
 
-**Purpose**: Configure Python environment and install dependencies
+**Purpose**: Install dependencies and configure Google Drive
 
-**Key Operations**:
-```python
-# Install tile2net and dependencies
-!pip install tile2net geopandas rasterio shapely
-
-# Mount Google Drive for data persistence
-from google.colab import drive
-drive.mount('/content/drive')
-
-# Create directory structure
-!mkdir -p /content/data/raw
-!mkdir -p /content/data/processed
-```
+**What it does**:
+- Installs `tile2net`, `geopandas`, `rasterio`, `shapely`
+- Mounts Google Drive for data persistence
+- Creates directory structure for processing
 
 **Runtime**: ~2 minutes
 
 ---
 
-### Notebook 01: Download Imagery
+### Notebook 01: tile2net Network Extraction
 
-**Purpose**: Download NYC orthoimagery from NYC Open Data
+**Purpose**: Extract pedestrian networks from NYC satellite imagery using computer vision
 
-**Data Source**: 
-- NYC Open Data Portal: [Digital Orthoimagery](https://data.cityofnewyork.us/)
-- Format: GeoTIFF (0.5ft resolution)
-- Coverage: Manhattan Borough
-- Years: 2004, 2006, 2008, 2010, 2012, 2014, 2016, 2018, 2020, 2022, 2024
+**What it does**:
+1. Downloads high-resolution orthoimagery from NYC Open Data (2004-2024)
+2. Tiles imagery into 512×512px patches
+3. Runs tile2net segmentation model (detects sidewalks, roads, crosswalks)
+4. Extracts vector network geometries from segmentation masks
+5. Saves to GeoPackage format with attributes
 
-**Key Operations**:
-```python
-import requests
-from pathlib import Path
+**Data Source**: [NYC Open Data - Orthoimagery](https://data.cityofnewyork.us/)
 
-years = [2004, 2006, 2008, 2010, 2012, 2014, 2016, 2018, 2020, 2022, 2024]
+**Key Features**:
+- GPU-accelerated processing (18x speedup)
+- Automatic handling of coordinate systems
+- Progress tracking for 11 years of data
 
-for year in years:
-    url = f"https://data.cityofnewyork.us/api/geospatial/{year}_manhattan.geotiff"
-    output_path = f"/content/data/raw/manhattan_{year}.tif"
-    
-    # Download with progress bar
-    response = requests.get(url, stream=True)
-    total_size = int(response.headers.get('content-length', 0))
-    
-    with open(output_path, 'wb') as f:
-        for chunk in response.iter_content(chunk_size=8192):
-            f.write(chunk)
-```
+**Runtime**: ~4 hours with GPU (all years)
 
-**Output**: 
-- `manhattan_YYYY.tif` files (~500MB each)
-- Total: ~5.5GB across all years
-
-**Runtime**: ~30 minutes (depends on network speed)
+**Output**: `networks_YYYY.gpkg` files containing LineString geometries
 
 ---
 
-### Notebook 02: Network Extraction with tile2net
+### Notebook 02: Prepare for Web
 
-**Purpose**: Extract pedestrian network features using deep learning
+**Purpose**: Convert GeoPackage data to React-ready format
 
-**About tile2net**:
-- Computer vision library for street network extraction
-- Pre-trained on satellite imagery
-- Detects: sidewalks, roads, crosswalks
-- Output: Segmentation masks
+**What it does**:
+1. Transforms coordinates to WGS84 (EPSG:4326) for Leaflet compatibility
+2. Generates `tiles_index.json` with tile metadata and bounds
+3. Exports per-tile GeoJSON files organized by year
+4. Creates 512×512px PNG images from satellite tiles
+5. Structures output for direct use in React app
 
-**Key Operations**:
-```python
-from tile2net import Raster, Segmentation
-
-for year in years:
-    # Load imagery
-    raster = Raster(f"/content/data/raw/manhattan_{year}.tif")
-    
-    # Create 512x512px tiles
-    tiles = raster.tile(tile_size=512, overlap=0)
-    
-    # Run segmentation (GPU-accelerated)
-    segmentation = Segmentation(
-        tiles=tiles,
-        model="sidewalk_model",
-        device="cuda"  # Use GPU
-    )
-    
-    # Extract network features
-    networks = segmentation.extract_networks()
-    
-    # Save results
-    networks.to_file(f"/content/data/processed/networks_{year}.gpkg")
-```
-
-**GPU Benefits**:
-- Without GPU: ~6 hours per year
-- With GPU: ~20 minutes per year
-- Total speedup: ~18x
-
-**Output**:
-- GeoPackage files with network geometries
-- Attributes: feature_type, confidence, geometry
-
-**Runtime**: ~4 hours for all years (with GPU)
-
----
-
-### Notebook 03: Prepare for Web
-
-**Purpose**: Convert networks to web-friendly format and generate metadata
-
-**Key Operations**:
-
-1. **Coordinate System Transformation**
-   ```python
-   import geopandas as gpd
-   
-   # Read networks
-   gdf = gpd.read_file(f"networks_{year}.gpkg")
-   
-   # Transform to WGS84 (EPSG:4326) for Leaflet
-   gdf = gdf.to_crs("EPSG:4326")
-   ```
-
-2. **Tile Metadata Generation**
-   ```python
-   tiles_index = []
-   
-   for tile_id in unique_tiles:
-       tile_data = gdf[gdf.tile_id == tile_id]
-       
-       # Calculate bounds
-       bounds = tile_data.total_bounds  # [west, south, east, north]
-       network_bounds = tile_data.geometry.total_bounds
-       
-       tiles_index.append({
-           "tile_id": tile_id,
-           "name": f"Manhattan Tile {tile_id}",
-           "bounds": {
-               "north": bounds[3],
-               "south": bounds[1],
-               "east": bounds[2],
-               "west": bounds[0]
-           },
-           "network_bounds": {
-               "north": network_bounds[3],
-               "south": network_bounds[1],
-               "east": network_bounds[2],
-               "west": network_bounds[0]
-           },
-           "center": [(bounds[3] + bounds[1])/2, (bounds[2] + bounds[0])/2],
-           "available_years": [2004, 2006, ..., 2024]
-       })
-   ```
-
-3. **Export GeoJSON**
-   ```python
-   # Create directory structure
-   for year in years:
-       output_dir = f"/content/data/web/networks/{year}"
-       os.makedirs(output_dir, exist_ok=True)
-       
-       # Export per-tile GeoJSON
-       for tile_id in unique_tiles:
-           tile_network = gdf[(gdf.tile_id == tile_id) & (gdf.year == year)]
-           
-           output_path = f"{output_dir}/tile_{tile_id}.geojson"
-           tile_network.to_file(output_path, driver="GeoJSON")
-   ```
-
-4. **Generate tiles_index.json**
-   ```python
-   import json
-   
-   with open("/content/data/web/tiles_index.json", "w") as f:
-       json.dump(tiles_index, f, indent=2)
-   ```
+**Runtime**: ~1 hour
 
 **Output Structure**:
 ```
 data/
-├── tiles_index.json
+├── tiles_index.json           # Tile metadata
 ├── images/
 │   ├── 2004/
 │   │   ├── tile_0.png
-│   │   ├── tile_1.png
 │   │   └── ...
 │   └── ...
 └── networks/
     ├── 2004/
     │   ├── tile_0.geojson
-    │   ├── tile_1.geojson
     │   └── ...
     └── ...
 ```
 
-**Runtime**: ~1 hour
+### Running the Pipeline
+
+1. **Open Colab**: Click notebook links in `notebooks/` directory
+2. **Enable GPU**: Runtime → Change runtime type → GPU
+3. **Run All Cells**: Runtime → Run all (or Ctrl+F9)
+4. **Download Results**: Copy `data/` folder to `app/public/`
+
+**Total Time**: ~5 hours for complete dataset (11 years)
+
+**Storage Requirements**:
+- Input: ~50 GB (satellite imagery)
+- Processing: ~20 GB (intermediate files)
+- Output: ~2 GB (web-ready data)
 
 ---
 
-### Coordinate System Details
-
-**Why Two Coordinate Systems?**
-
-The project handles a critical challenge: **imagery and network data use different coordinate systems**.
-
-| Aspect    | Imagery Coordinates        | Network Coordinates    |
-|-----------|----------------------------|------------------------|
-| Source    | Raster bounds from GeoTIFF | Actual GPS coordinates |
-| Precision | Approximate (±10m)         | High precision (±1m)   |
-| Use Case  | Visual reference           | Spatial analysis       |
-
-**Transformation Process**:
-
-```javascript
-// Single-tile mode: Transform network to match imagery
-function transformNetworkToImagery(feature, imgBounds, netBounds) {
-  const coords = feature.geometry.coordinates;
-  
-  const xRatio = (coords[0] - netBounds.west) / (netBounds.east - netBounds.west);
-  const yRatio = (coords[1] - netBounds.south) / (netBounds.north - netBounds.south);
-  
-  return [
-    imgBounds.west + xRatio * (imgBounds.east - imgBounds.west),
-    imgBounds.south + yRatio * (imgBounds.north - imgBounds.south)
-  ];
-}
-```
-
-**Multi-Tile Mode**:
-- Uses network coordinates as ground truth
-- Fits imagery to network bounds
-- Accepts ±10% alignment error for visual context
-
----
-
-## 🎛️ Application Features Deep Dive
+## 🎛️ Application Features
 
 ### Single-Tile Mode
 
-**Purpose**: Analyze individual tiles with pixel-perfect alignment
+**Best for**: Detailed analysis, precise measurements, street-level accuracy
 
-**Features**:
-- Perfect coordinate transformation
-- High-precision network overlay
+- Perfect coordinate transformation between imagery and networks
+- High-precision overlay alignment
 - Detailed statistics for 512×512px area
-- Smooth animations and transitions
-
-**Use Cases**:
-- Detailed infrastructure analysis
-- Precise measurements
-- Street-level accuracy requirements
-
-**Technical Implementation**:
-```javascript
-// Calculate transformed coordinates
-const transformedGeoJSON = {
-  type: "FeatureCollection",
-  features: originalGeoJSON.features.map(feature => ({
-    ...feature,
-    geometry: {
-      ...feature.geometry,
-      coordinates: transformCoordinates(
-        feature.geometry.coordinates,
-        tile.bounds,
-        tile.network_bounds
-      )
-    }
-  }))
-};
-```
-
----
 
 ### Multi-Tile Mode
 
-**Purpose**: Analyze larger areas and identify patterns across neighborhoods
+**Best for**: Neighborhood patterns, area comparisons, trend identification
 
-**Features**:
-- Select 1-16 adjacent tiles
-- Rectangle validation (no gaps allowed)
+- Select 1-16 adjacent tiles (must form rectangle)
 - Automated image stitching
-- Aggregated statistics
-- Network-first rendering
+- Aggregated statistics across selection
+- Network-first rendering (accepts ±10% imagery alignment)
 
 **Selection Process**:
-1. Click "Multi-Select (ON)" button
+1. Click "Multi-Select (ON)"
 2. Double-click start tile (turns green)
-3. Hover to preview selection (blue dashed rectangle)
+3. Hover to preview selection area
 4. Double-click end tile
-5. System validates rectangle formation
-6. Warning dialog appears (explains alignment limitations)
-7. Click "Alright, Continue"
-8. Images stitch, networks merge, stats calculate
-
-**Technical Implementation**:
-
-```javascript
-// Validate tile selection
-function validateTileSelection(tileIDs, tiles) {
-  // Extract row/column from tile names
-  const positions = tileIDs.map(id => {
-    const tile = tiles.find(t => t.tile_id === id);
-    const match = tile.name.match(/\(R(\d+)C(\d+)\)/);
-    return { row: parseInt(match[1]), col: parseInt(match[2]) };
-  });
-  
-  // Find bounding box
-  const minRow = Math.min(...positions.map(p => p.row));
-  const maxRow = Math.max(...positions.map(p => p.row));
-  const minCol = Math.min(...positions.map(p => p.col));
-  const maxCol = Math.max(...positions.map(p => p.col));
-  
-  // Check rectangle formation
-  const expectedTiles = (maxRow - minRow + 1) * (maxCol - minCol + 1);
-  if (tileIDs.length !== expectedTiles) {
-    return { valid: false, error: "Selection must form a rectangle" };
-  }
-  
-  // Check tile limit
-  if (tileIDs.length > 16) {
-    return { valid: false, error: "Maximum 16 tiles" };
-  }
-  
-  return { valid: true, layout: { minRow, maxRow, minCol, maxCol } };
-}
-```
-
-**Image Stitching**:
-
-```javascript
-function stitchImages(tileIDs, year, tiles, layout) {
-  const canvas = document.createElement('canvas');
-  const cols = layout.maxCol - layout.minCol + 1;
-  const rows = layout.maxRow - layout.minRow + 1;
-  
-  canvas.width = cols * 512;
-  canvas.height = rows * 512;
-  
-  const ctx = canvas.getContext('2d');
-  
-  // Critical: Invert Y-axis (row numbers increase northward)
-  tileIDs.forEach(tileID => {
-    const tile = tiles.find(t => t.tile_id === tileID);
-    const { row, col } = parseTileName(tile.name);
-    
-    const canvasX = (col - layout.minCol) * 512;
-    const canvasY = (layout.maxRow - row) * 512;  // Inverted!
-    
-    const img = new Image();
-    img.src = `/data/images/${year}/tile_${tileID}.png`;
-    
-    img.onload = () => ctx.drawImage(img, canvasX, canvasY);
-  });
-  
-  return canvas.toDataURL();
-}
-```
-
-**Performance**:
-- 4 tiles: ~300ms stitching time
-- 16 tiles: ~2 seconds stitching time
-- Images cached after first load
-- Memory usage: ~1MB per tile
-
----
+5. Review alignment warning
+6. Confirm and analyze
 
 ### Statistical Analysis
 
-**Real-Time Metrics**:
+Real-time calculations using Turf.js:
 
-Calculated dynamically using Turf.js spatial operations:
+- **Length Metrics**: Total kilometers of each network type
+- **Density**: km per km² for infrastructure comparison
+- **Coverage**: Feature counts and distribution
+- **Pedestrian-Friendliness**: Sidewalk-to-road ratios
+- **Temporal Trends**: Growth rates and change patterns
+- **Comparative Analysis**: Year-over-year comparisons
 
-```javascript
-function calculateGeoJSONStats(geojson, tileBounds) {
-  const stats = {
-    sidewalk: { totalLength: 0, featureCount: 0, density: 0 },
-    road: { totalLength: 0, featureCount: 0, density: 0 },
-    crosswalk: { totalLength: 0, featureCount: 0, density: 0 }
-  };
-  
-  geojson.features.forEach(feature => {
-    const type = feature.properties.f_type;
-    const length = turf.length(feature, { units: 'kilometers' });
-    
-    stats[type].totalLength += length;
-    stats[type].featureCount += 1;
-  });
-  
-  // Calculate tile area
-  const tileArea = turf.area(turf.bboxPolygon([
-    tileBounds.west, tileBounds.south,
-    tileBounds.east, tileBounds.north
-  ])) / 1e6;  // Convert to km²
-  
-  // Calculate density
-  Object.keys(stats).forEach(type => {
-    stats[type].density = stats[type].totalLength / tileArea;
-  });
-  
-  return stats;
-}
-```
+### Theme System
 
-**Temporal Trends**:
+Two carefully designed themes:
 
-```javascript
-function calculateTemporalStats(yearlyStats, years) {
-  const temporal = {};
-  
-  ['sidewalk', 'road', 'crosswalk'].forEach(type => {
-    const values = years.map(year => yearlyStats[year]?.[type]?.totalLength || 0);
-    const firstValue = values[0];
-    const lastValue = values[values.length - 1];
-    
-    temporal[type] = {
-      growthRate: ((lastValue - firstValue) / firstValue) * 100,
-      totalChange: lastValue - firstValue,
-      peakYear: years[values.indexOf(Math.max(...values))],
-      trend: lastValue > firstValue ? 'increasing' : 'decreasing'
-    };
-  });
-  
-  return temporal;
-}
-```
+- **Light Mode**: High contrast for daytime use
+- **Dark Mode**: Reduced eye strain for extended sessions
 
-**Pedestrian-Friendliness Score**:
-
-```javascript
-function calculateComparativeStats(yearlyStats, years) {
-  return years.map(year => ({
-    year,
-    sidewalkToRoadRatio: yearlyStats[year].sidewalk.totalLength / 
-                         yearlyStats[year].road.totalLength,
-    crosswalksPerKmRoad: yearlyStats[year].crosswalk.featureCount /
-                         yearlyStats[year].road.totalLength
-  }));
-}
-```
+All 30+ UI elements smoothly transition between themes, including:
+- Map backgrounds
+- Chart colors
+- Text and borders
+- Shadows and overlays
 
 ---
 
-### D3.js Visualizations
-
-**Temporal Trend Line Chart**:
-
-```javascript
-// Smooth line animation
-const path = g.append('path')
-  .datum(chartData)
-  .attr('fill', 'none')
-  .attr('stroke', color)
-  .attr('stroke-width', 3)
-  .attr('d', lineGenerator);
-
-const totalLength = path.node().getTotalLength();
-path
-  .attr('stroke-dasharray', `${totalLength} ${totalLength}`)
-  .attr('stroke-dashoffset', totalLength)
-  .transition()
-  .duration(1500)
-  .ease(d3.easeCubicOut)
-  .attr('stroke-dashoffset', 0);
-```
-
-**Interactive Data Points**:
-
-```javascript
-// Animated point appearance with hover effects
-g.selectAll('.dot')
-  .data(chartData)
-  .enter()
-  .append('circle')
-  .attr('r', 0)
-  .transition()
-  .delay((d, i) => 1000 + i * 50)
-  .duration(400)
-  .ease(d3.easeBackOut)
-  .attr('r', 5)
-  .on('end', function() {
-    d3.select(this)
-      .on('mouseover', function(event, d) {
-        // Show tooltip with value
-        d3.select(this).transition().attr('r', 8);
-      })
-      .on('mouseout', function() {
-        d3.select(this).transition().attr('r', 5);
-      });
-  });
-```
-
-**Radial Progress Chart**:
-
-```javascript
-// Animated arc drawing
-const arc = d3.arc()
-  .innerRadius(innerRadius)
-  .outerRadius(outerRadius);
-
-arcs.transition()
-  .duration(1000)
-  .delay((d, i) => i * 150)
-  .ease(d3.easeBackOut)
-  .attrTween('d', function(d) {
-    const interpolate = d3.interpolate(
-      { startAngle: 0, endAngle: 0 },
-      d
-    );
-    return t => arc(interpolate(t));
-  });
-```
-
----
-
-## 🎨 Theme System
-
-**Architecture**:
-
-```javascript
-const THEMES = {
-  light: {
-    background: '#f0f0f0',
-    surface: '#ffffff',
-    textPrimary: '#333333',
-    primary: '#667eea',
-    // ... 30+ theme tokens
-  },
-  dark: {
-    background: '#0f0f1a',
-    surface: '#1a1a2e',
-    textPrimary: '#e4e4e7',
-    primary: '#818cf8',
-    // ... 30+ theme tokens
-  }
-};
-```
-
-**Dynamic Application**:
-
-```javascript
-// All components receive theme prop
-<div style={{
-  background: theme.surface,
-  color: theme.textPrimary,
-  border: `1px solid ${theme.border}`,
-  boxShadow: theme.shadowMd,
-  transition: 'all 0.3s ease'
-}}>
-  {/* Theme-aware content */}
-</div>
-
-// Leaflet canvas background
-<style>{`
-  .leaflet-container {
-    background: ${theme.background} !important;
-    transition: background 0.3s ease;
-  }
-`}</style>
-```
-
-**Custom Color Picker**:
-
-```javascript
-// 20-color preset palette + custom hex input
-const ColorPicker = ({ value, onChange, theme }) => {
-  const presets = [
-    '#4A90E2', '#FF6B6B', '#4ECDC4', /* ... 17 more colors */
-  ];
-  
-  return (
-    <div>
-      {presets.map(color => (
-        <div
-          key={color}
-          onClick={() => onChange(color)}
-          style={{
-            background: color,
-            border: value === color ? '3px solid black' : 'none'
-          }}
-        />
-      ))}
-      <input
-        type="text"
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        placeholder="#RRGGBB"
-      />
-    </div>
-  );
-};
-```
-
----
-
-## 🚀 Performance Optimizations
-
-### Lazy Loading Strategy
-
-**Network Data**:
-```javascript
-const [allNetworkData, setAllNetworkData] = useState({});
-
-useEffect(() => {
-  if (!activeTileID || allNetworkData[activeTileID]?.[currentYear]) return;
-  
-  fetch(`/data/networks/${currentYear}/tile_${activeTileID}.geojson`)
-    .then(res => res.json())
-    .then(data => {
-      setAllNetworkData(prev => ({
-        ...prev,
-        [activeTileID]: {
-          ...prev[activeTileID],
-          [currentYear]: data
-        }
-      }));
-    });
-}, [activeTileID, currentYear]);
-```
-
-**Benefits**:
-- Initial load: ~200KB (tiles_index.json only)
-- Per-tile load: ~50-100KB
-- Total memory: Scales with user exploration
-- No unnecessary downloads
-
-### Image Stitching Cache
-
-```javascript
-const [stitchedImages, setStitchedImages] = useState({});
-
-function getStitchedImage(tileIDs, year) {
-  const key = `${tileIDs.join('-')}-${year}`;
-  
-  if (stitchedImages[key]) {
-    return stitchedImages[key];  // Return cached
-  }
-  
-  const stitched = stitchImages(tileIDs, year, tiles, layout);
-  setStitchedImages(prev => ({ ...prev, [key]: stitched }));
-  
-  return stitched;
-}
-```
-
-**Results**:
-- First load: 2 seconds (16 tiles)
-- Subsequent loads: Instant
-- Memory trade-off: ~1MB per cached combination
-
-### React Optimization
-
-```javascript
-// useMemo for expensive calculations
-const currentStats = useMemo(() => 
-  calculateGeoJSONStats(currentNetworkData, tileBounds),
-  [currentNetworkData, tileBounds]
-);
-
-// useCallback for stable function references
-const handleTileClick = useCallback((tileID) => {
-  setActiveTileID(tileID);
-}, []);
-
-// Conditional rendering to avoid unnecessary work
-{isAreaSelected && currentNetworkData && (
-  <GeoJSON data={currentNetworkData} style={getFeatureStyle} />
-)}
-```
-
----
-
-## 🐛 Known Issues & Limitations
+## 🐛 Known Limitations
 
 ### Multi-Tile Alignment
 
-**Issue**: Imagery and network overlay may have ±10% misalignment in multi-tile mode
+**Issue**: ±10% alignment discrepancy between imagery and networks in multi-tile mode
 
-**Cause**: 
-- Individual tiles use precise transformation
-- Multi-tile uses averaged bounds
-- Imagery coordinate precision varies
+**Cause**: Single tiles use precise transformation; multi-tile uses averaged bounds
 
-**Mitigation**:
-- Warning dialog before multi-tile load
-- Emphasis on GeoJSON accuracy
-- 10% opacity default for imagery
-- Network-first rendering strategy
+**Impact**: Visual only - GeoJSON coordinates remain accurate for measurements
 
 **When to Use**:
-- Single-tile: Precision work, measurements, detailed analysis
-- Multi-tile: Pattern detection, neighborhood comparison, trend identification
+- **Single-tile**: Precision work, exact measurements
+- **Multi-tile**: Pattern detection, neighborhood trends
 
 ### Browser Compatibility
 
-**Recommended**: Chrome 90+, Firefox 88+, Safari 14+, Edge 90+
+- **Recommended**: Chrome 90+, Firefox 88+, Safari 14+, Edge 90+
+- **Not Supported**: Internet Explorer (uses modern JavaScript)
 
-**Known Issues**:
-- Safari <14: CSS animations may stutter
-- Firefox <88: Canvas rendering performance reduced
-- IE11: Not supported (uses modern JavaScript features)
+### Data Coverage
 
-### Data Limitations
-
-**Temporal Coverage**: 
-- Some tiles missing data for certain years
-- Years with missing data: Shown as "Network data unavailable"
-
-**Spatial Coverage**:
-- Manhattan only (expandable to other boroughs)
-- 512×512px tiles may split features at edges
-
-**tile2net Accuracy**:
-- ~85-90% precision on sidewalks
-- ~90-95% precision on roads
-- ~75-80% precision on crosswalks
-- May miss narrow alleyways or private paths
+- **Geographic**: Manhattan only (expandable to other boroughs)
+- **Temporal**: Some tiles missing data for certain years
+- **tile2net Accuracy**: 85-95% precision depending on feature type
 
 ---
 
 ## 📚 Documentation
 
-### API Reference
+### Component Architecture
 
-See [docs/API.md](docs/API.md) for detailed component and function documentation.
+The application uses a modular React architecture:
 
-### Component Hierarchy
-
-```
-App
-├── MapContainer
-│   ├── TileLayer (OpenStreetMap base)
-│   ├── TileInteractionLayer
-│   │   ├── Rectangle (tile boundaries)
-│   │   ├── ImageOverlay (satellite imagery)
-│   │   └── GeoJSON (network features)
-│   └── MapController (bounds management)
-├── StatisticsPanel
-│   ├── OverviewTab
-│   │   ├── MetricCards
-│   │   └── InfrastructureRadial (D3)
-│   ├── TrendsTab
-│   │   └── TemporalTrendChart (D3)
-│   └── CompareTab
-│       └── ComparativeBarChart (D3)
-├── ControlsPanel
-│   ├── LayerToggles
-│   ├── OpacitySliders
-│   └── ColorPickers
-└── Timeline
-    ├── YearSlider
-    └── YearFilterSelector
-```
+- **App.jsx**: Main component managing state and tile selection
+- **StatisticsPanel**: Tab-based interface for metrics and charts
+- **TileInteractionLayer**: Handles map rendering and user interactions
+- **Utility Functions**: Shared calculations and transformations
 
 ### State Management
 
+Key state variables:
+
 ```javascript
-// Core State
-const [activeTileID, setActiveTileID] = useState(null);
-const [currentYear, setCurrentYear] = useState(2024);
-const [allNetworkData, setAllNetworkData] = useState({});
-
-// UI State
-const [layers, setLayers] = useState({ sidewalk: true, road: true, crosswalk: true });
-const [layerColors, setLayerColors] = useState(DEFAULT_COLORS);
-const [isDarkMode, setIsDarkMode] = useState(false);
-
-// Multi-Tile State
-const [isMultiTileMode, setIsMultiTileMode] = useState(false);
-const [selectionStart, setSelectionStart] = useState(null);
-const [stitchedImages, setStitchedImages] = useState({});
-
-// Statistics State
-const [tileStats, setTileStats] = useState(null);
-const [temporalStats, setTemporalStats] = useState(null);
+activeTileID        // Currently selected tile(s)
+currentYear         // Active year from timeline
+allNetworkData      // Cached GeoJSON by tile and year
+isDarkMode          // Theme toggle
+layers              // Sidewalk/road/crosswalk visibility
+layerColors         // Custom colors for each network type
 ```
+
+### Performance Considerations
+
+**Lazy Loading**: Networks fetched only when tile is selected (~50-100 KB per tile)
+
+**Caching Strategy**: Stitched images stored in memory to prevent recomputation
+
+**React Optimization**: Uses `useMemo` and `useCallback` to minimize re-renders
 
 ---
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please follow these guidelines:
-
-### Getting Started
+Contributions are welcome! Here's how to get started:
 
 1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+2. Create a feature branch (`git checkout -b feature/new-feature`)
+3. Make your changes with clear commit messages
+4. Test thoroughly (see [Testing](#testing) below)
+5. Submit a Pull Request
 
-### Code Style
+### Development Guidelines
 
-- Use ES6+ JavaScript features
-- Follow React Hooks best practices
-- Add JSDoc comments for complex functions
+- Follow existing code style and conventions
+- Add comments for complex logic
 - Keep components focused and reusable
-- Use meaningful variable names
+- Test on multiple browsers and screen sizes
 
-### Testing
+### Testing Checklist
 
-Before submitting:
-- [ ] Test on Chrome, Firefox, and Safari
-- [ ] Verify dark mode works correctly
-- [ ] Check multi-tile selection with various configurations
-- [ ] Ensure statistics calculate correctly
-- [ ] Test with network throttling (slow 3G)
+Before submitting a PR:
+
+- [ ] Tested on Chrome, Firefox, Brave and Safari
+- [ ] Multi-tile selection with various configurations
+- [ ] Statistics calculate accurately
+- [ ] No console errors or warnings
 
 ---
 
 ## 📄 License
 
-This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the **MIT License** - see [LICENSE](LICENSE) file for details.
 
-### Third-Party Licenses
-
-- **React**: MIT License
-- **Leaflet**: BSD-2-Clause License
-- **D3.js**: ISC License
-- **tile2net**: MIT License
-- **OpenStreetMap**: ODbL License (for base tiles)
+**Third-Party Licenses**:
+- React (MIT), Leaflet (BSD-2-Clause), D3.js (ISC)
+- tile2net (MIT), OpenStreetMap tiles (ODbL)
 
 ---
 
 ## 🙏 Acknowledgments
 
-### Core Technologies
-- **[tile2net](https://github.com/VIDA-NYU/tile2net)** - The backbone of our network extraction pipeline. Special thanks to the VIDA Lab at NYU for developing and open-sourcing this incredible computer vision tool.
-- **[React](https://react.dev/)** - For providing the robust component framework that powers our interactive UI.
-- **[Leaflet](https://leafletjs.com/)** - For the excellent open-source mapping library that makes geospatial visualization accessible.
-- **[D3.js](https://d3js.org/)** - For the powerful data visualization primitives that bring our statistics to life.
+### Core Technologies & Tools
+
+- **[tile2net](https://github.com/VIDA-NYU/tile2net)** by NYU VIDA Lab - The deep learning foundation that makes automated network extraction possible
+- **[React](https://react.dev/)** - Powerful component framework for building the UI
+- **[Leaflet](https://leafletjs.com/)** - Open-source mapping library
+- **[D3.js](https://d3js.org/)** - Data visualization primitives
+- **Google Colab** - Free GPU resources for large-scale processing
 
 ### Data Providers
-- **[NYC Open Data](https://opendata.cityofnewyork.us/)** - For providing free, high-resolution orthoimagery spanning two decades.
-- **[OpenStreetMap Contributors](https://www.openstreetmap.org/)** - For the base map tiles used throughout the application.
 
-### Community & Support
-- **Google Colab** - For providing free GPU resources that made large-scale processing feasible.
-- **Vite Team** - For the lightning-fast development experience.
-- **React-Leaflet Maintainers** - For the seamless React integration.
+- **[NYC Open Data](https://opendata.cityofnewyork.us/)** - High-resolution orthoimagery spanning 20 years
+- **[OpenStreetMap](https://www.openstreetmap.org/)** - Base map tiles
 
 ### Special Recognition
-- **NYU VIDA Lab** - For pioneering work in urban analytics and computer vision.
-- **Urban Planning Community** - For inspiring the need for tools like this.
-- **Open Source Community** - For the countless libraries and tools that make modern development possible.
+
+- **NYU VIDA Lab** - Pioneering urban analytics and computer vision research
+- **Urban Planning Community** - Inspiring the need for accessible infrastructure tools
+- **Open Source Community** - Countless libraries enabling modern development
 
 ---
 
 ## 📧 Contact
 
-**Project Maintainer**: Shyam Krishna Sateesh
+**Shyam Krishna Sateesh**
 - Email: shyam.s@nyu.edu
 - GitHub: [@shyamksateesh](https://github.com/shyamksateesh)
-- LinkedIn: [Profile](https://www.linkedin.com/in/shyamksateesh/)
+- LinkedIn: [linkedin.com/in/shyamksateesh](https://www.linkedin.com/in/shyamksateesh/)
 
-**Project Link**: [https://github.com/shyamksateesh/pedestrian-viz](https://github.com/shyamksateesh/pedestrian-viz)
+**Project Repository**: [github.com/shyamksateesh/pedestrian_viz](https://github.com/shyamksateesh/pedestrian_viz)
 
 ---
 
 ## 🗺️ Roadmap
 
-### Upcoming Features
-- [ ] **Export Functionality**: Download GeoJSON, statistics CSV, or images
-- [ ] **Animation Mode**: Auto-play through years with configurable speed
-- [ ] **Comparison View**: Side-by-side view of two years
-- [ ] **Bookmarking**: Save and share specific tile/year combinations
-- [ ] **Mobile Optimization**: Improved touch interactions and responsive layouts
-- [ ] **Tutorial Mode**: Interactive walkthrough for first-time users
+### Planned Features
+
+- [ ] Export functionality (GeoJSON, CSV, PNG)
+- [ ] Animation mode (auto-play through years)
+- [ ] Comparison view (side-by-side years)
+- [ ] Mobile optimization
+- [ ] Tutorial walkthrough for first-time users
 
 ### Future Enhancements
-- [ ] **Borough Expansion**: Brooklyn, Queens, Bronx, Staten Island
-- [ ] **Additional Layers**: Bike lanes, bus lanes, parking zones
-- [ ] **3D Visualization**: Extrude buildings for context
-- [ ] **Change Detection**: Automated highlighting of modified segments
-- [ ] **Accessibility Metrics**: ADA compliance scoring
-- [ ] **API Development**: REST API for programmatic access
+
+- [ ] Expand to other NYC boroughs (Brooklyn, Queens, Bronx, Staten Island)
+- [ ] Additional layers (bike lanes, bus routes)
+- [ ] 3D visualization with building extrusion
+- [ ] REST API for programmatic access
+- [ ] Accessibility compliance scoring
 
 ### Research Applications
-- [ ] **ML Training Data**: Export for training new computer vision models
-- [ ] **Urban Planning Tools**: Integration with city planning workflows
-- [ ] **Academic Collaboration**: Partner with urban studies departments
-- [ ] **Policy Impact Analysis**: Quantify infrastructure investment effects
+
+- [ ] ML training dataset export
+- [ ] Urban planning workflow integration
+- [ ] Academic collaboration tools
+- [ ] Policy impact analysis features
 
 ---
 
 ## 📊 Project Statistics
 
-- **Lines of Code**: ~15,000+
-- **Development Time**: [Your timeline]
+- **Frontend**: ~10,000+ lines (React, JavaScript)
+- **Processing**: 3 Colab notebooks (~1,500 lines Python)
 - **Data Processed**: ~50,000 network segments
-- **Geographic Coverage**: ~60 km² (Manhattan)
+- **Coverage**: 60+ km² (Manhattan)
 - **Temporal Span**: 20 years (2004-2024)
-- **Processing Pipeline**: 4 notebooks
-- **Frontend Components**: 25+
-- **D3 Visualizations**: 3 interactive charts
-- **Supported Browsers**: Chrome, Firefox, Safari, Edge
+- **Components**: 25+ React components
+- **Visualizations**: 3 interactive D3.js charts
 
 ---
 
@@ -1195,8 +555,10 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 
 **Built with ❤️ for urban analytics and open data**
 
-⭐ Star this repo if you find it useful!
+If you find this project useful, please ⭐ **star the repo**!
 
-[Report Bug](../../issues) · [Request Feature](../../issues) · [Documentation](docs/API.md)
+[Report Bug](../../issues) · [Request Feature](../../issues) · [Discussions](../../discussions)
+
+*Made possible by NYU Visualization for Machine Learning Course (Fall 2024)*
 
 </div>
