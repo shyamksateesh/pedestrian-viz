@@ -10,7 +10,7 @@
 
 > A full-stack geospatial visualization tool combining computer vision, GIS processing, and interactive web technologies to analyze two decades of New York City's pedestrian infrastructure changes at unprecedented granularity.
 
-[Live Demo](#) | [Video Walkthrough](#) | [Report Issues](../../issues)
+[Video Walkthrough](#) | [Report Issues](../../issues)
 
 ---
 
@@ -408,7 +408,7 @@ All 30+ UI elements smoothly transition between themes, including:
 
 ### Browser Compatibility
 
-- **Recommended**: Chrome 90+, Firefox 88+, Safari 14+, Edge 90+
+- **Recommended**: Chrome 90+, Firefox 88+, Safari 14+, Edge 90+, Brave
 - **Not Supported**: Internet Explorer (uses modern JavaScript)
 
 ### Data Coverage
