@@ -68,24 +68,24 @@ The NYC Sidewalk Time Machine addresses these challenges by:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                         DATA PIPELINE                            │
+│                         DATA PIPELINE                           │
 ├─────────────────────────────────────────────────────────────────┤
-│                                                                   │
-│  NYC Open Data (GeoTIFF) → tile2net (CV) → GeoJSON → React App │
-│                                                                   │
-│  [Imagery: 512x512px]   [Segmentation]   [Networks]  [Viz]     │
-│                                                                   │
+│                                                                 │
+│  NYC Open Data (GeoTIFF) → tile2net (CV) → GeoJSON → React App  │
+│                                                                 │
+│  [Imagery: 512x512px]   [Segmentation]   [Networks]  [Viz]      │
+│                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────┐
-│                      FRONTEND STACK                              │
+│                      FRONTEND STACK                             │
 ├─────────────────────────────────────────────────────────────────┤
-│                                                                   │
+│                                                                 │
 │  React.js ──┬──> React-Leaflet (Mapping)                        │
-│             ├──> D3.js (Statistics)                              │
-│             ├──> Turf.js (Spatial Analysis)                      │
-│             └──> Custom State Management                          │
-│                                                                   │
+│             ├──> D3.js (Statistics)                             │
+│             ├──> Turf.js (Spatial Analysis)                     │
+│             └──> Custom State Management                        │
+│                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -172,7 +172,7 @@ The NYC Sidewalk Time Machine addresses these challenges by:
 ## 📂 Project Structure
 
 ```
-nyc-sidewalk-time-machine/
+pedestrian_viz/
 ├── colab-notebooks/           # Data processing pipeline
 │   ├── 00_setup.ipynb        # Environment setup
 │   ├── 01_download_imagery.ipynb  # NYC Open Data acquisition
@@ -226,8 +226,8 @@ nyc-sidewalk-time-machine/
 
 1. **Clone the Repository**
    ```bash
-   git clone https://github.com/YOUR_USERNAME/nyc-sidewalk-time-machine.git
-   cd nyc-sidewalk-time-machine
+   git clone https://github.com/YOUR_USERNAME/pedestrian_viz.git
+   cd pedestrian_viz
    ```
 
 2. **Install Dependencies**
@@ -498,11 +498,11 @@ data/
 
 The project handles a critical challenge: **imagery and network data use different coordinate systems**.
 
-| Aspect | Imagery Coordinates | Network Coordinates |
-|--------|-------------------|---------------------|
-| Source | Raster bounds from GeoTIFF | Actual GPS coordinates |
-| Precision | Approximate (±10m) | High precision (±1m) |
-| Use Case | Visual reference | Spatial analysis |
+| Aspect    | Imagery Coordinates        | Network Coordinates    |
+|-----------|----------------------------|------------------------|
+| Source    | Raster bounds from GeoTIFF | Actual GPS coordinates |
+| Precision | Approximate (±10m)         | High precision (±1m)   |
+| Use Case  | Visual reference           | Spatial analysis       |
 
 **Transformation Process**:
 
@@ -1142,12 +1142,12 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 
 ## 📧 Contact
 
-**Project Maintainer**: [Your Name]
-- Email: your.email@example.com
-- GitHub: [@YOUR_USERNAME](https://github.com/YOUR_USERNAME)
-- LinkedIn: [Your LinkedIn](https://linkedin.com/in/YOUR_PROFILE)
+**Project Maintainer**: Shyam Krishna Sateesh
+- Email: shyam.s@nyu.edu
+- GitHub: [@shyamksateesh](https://github.com/shyamksateesh)
+- LinkedIn: [Profile](https://www.linkedin.com/in/shyamksateesh/)
 
-**Project Link**: [https://github.com/YOUR_USERNAME/nyc-sidewalk-time-machine](https://github.com/YOUR_USERNAME/nyc-sidewalk-time-machine)
+**Project Link**: [https://github.com/shyamksateesh/pedestrian-viz](https://github.com/shyamksateesh/pedestrian-viz)
 
 ---
 
