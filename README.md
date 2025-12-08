@@ -160,9 +160,13 @@ pedestrian_viz/
 │   ├── App.jsx
 │   ├── main.jsx
 │   └── public/data/               # Generated from notebooks
-│       ├── tiles_index.json
-│       ├── images/                # Satellite imagery by year
-│       └── networks/              # GeoJSON networks by year
+│       └── tiles/                 # All data organized by tile
+│           ├── tiles_index.json
+│           ├── imagery/
+│           │   └── metadata.json
+│           └── manhattan_tile_*/
+│               ├── imagery/       # PNGs by year
+│               └── networks/      # GeoJSON by year
 │
 ├── notebooks/                     # Google Colab pipeline
 │   ├── 00_setup_and_config.ipynb
@@ -297,16 +301,25 @@ Notebook 00        Notebook 01           Notebook 02
 **Output Structure**:
 ```
 data/
-├── tiles_index.json           # Tile metadata
-├── images/
-│   ├── 2004/
-│   │   ├── tile_0.png
-│   │   └── ...
-│   └── ...
-└── networks/
-    ├── 2004/
-    │   ├── tile_0.geojson
-    │   └── ...
+└── tiles/
+    ├── tiles_index.json           # Tile metadata
+    ├── imagery/
+    │   └── metadata.json
+    ├── manhattan_tile_0/
+    │   ├── imagery/
+    │   │   ├── 2004.png
+    │   │   ├── 2006.png
+    │   │   ├── 2008.png
+    │   │   └── ...
+    │   └── networks/
+    │       ├── 2004.geojson
+    │       ├── 2006.geojson
+    │       ├── 2008.geojson
+    │       └── ...
+    ├── manhattan_tile_1/
+    │   ├── imagery/
+    │   └── networks/
+    ├── manhattan_tile_2/
     └── ...
 ```
 
@@ -461,7 +474,8 @@ Contributions are welcome! Here's how to get started:
 
 Before submitting a PR:
 
-- [ ] Tested on Chrome, Firefox, Brave and Safari
+- [ ] Tested on Chrome, Firefox, and Safari
+- [ ] Dark mode works correctly
 - [ ] Multi-tile selection with various configurations
 - [ ] Statistics calculate accurately
 - [ ] No console errors or warnings

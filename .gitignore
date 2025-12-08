@@ -16,13 +16,13 @@ package-lock.json
 # Your original data excludes
 data/
 app/public/data/tiles/
-app/public/data/metadata.json
 
-# Additional data patterns
-app/public/data/images/
-app/public/data/images/**/*.png
-app/public/data/networks/
-app/public/data/networks/**/*.geojson
+# Specific tile data patterns
+app/public/data/tiles/manhattan_tile_*/
+app/public/data/tiles/*/imagery/*.png
+app/public/data/tiles/*/networks/*.geojson
+app/public/data/tiles/imagery/
+app/public/data/tiles/tiles_index.json
 
 # All data file types
 *.png
@@ -42,8 +42,7 @@ app/public/data/networks/**/*.geojson
 
 # Keep directory structure with .gitkeep files
 !app/public/data/.gitkeep
-!app/public/data/images/.gitkeep
-!app/public/data/networks/.gitkeep
+!app/public/data/tiles/.gitkeep
 
 # ============================================================================
 # BUILD OUTPUTS

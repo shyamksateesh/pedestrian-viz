@@ -76,20 +76,22 @@ This folder contains three Google Colab notebooks that process NYC satellite ima
 **Output Structure**:
 ```
 data/
-├── tiles_index.json           # Tile metadata (bounds, centers, years)
-├── images/
-│   ├── 2004/
-│   │   ├── tile_0.png
-│   │   ├── tile_1.png
-│   │   └── ...
-│   ├── 2006/
-│   └── ...
-└── networks/
-    ├── 2004/
-    │   ├── tile_0.geojson
-    │   ├── tile_1.geojson
-    │   └── ...
-    ├── 2006/
+└── tiles/
+    ├── tiles_index.json
+    ├── imagery/
+    │   └── metadata.json
+    ├── manhattan_tile_0/
+    │   ├── imagery/
+    │   │   ├── 2004.png
+    │   │   ├── 2006.png
+    │   │   └── ...
+    │   └── networks/
+    │       ├── 2004.geojson
+    │       ├── 2006.geojson
+    │       └── ...
+    ├── manhattan_tile_1/
+    │   ├── imagery/
+    │   └── networks/
     └── ...
 ```
 
@@ -110,15 +112,16 @@ data/
 
 After running all notebooks:
 
-1. **Find Output**: Check Google Drive `/content/data/`
-2. **Download**: Right-click `data/` folder → Download
+1. **Find Output**: Check Google Drive `/content/data/tiles/`
+2. **Download**: Right-click `tiles/` folder → Download
 3. **Extract**: Unzip if needed
-4. **Deploy**: Move to `../app/public/data/`
+4. **Deploy**: Move entire `tiles/` folder to `app/public/data/`
 
 Your React app will now have:
-- ✅ Tile metadata (`tiles_index.json`)
-- ✅ Satellite images by year
-- ✅ GeoJSON networks by year
+- ✅ Tile metadata (`app/public/data/tiles/tiles_index.json`)
+- ✅ Imagery metadata (`app/public/data/tiles/imagery/metadata.json`)
+- ✅ Per-tile data organized as `app/public/data/tiles/manhattan_tile_N/`
+- ✅ Each tile has `imagery/` folder (PNGs by year) and `networks/` folder (GeoJSON by year)
 
 ---
 
@@ -218,3 +221,11 @@ drive.mount('/content/drive', force_remount=True)
 - All outputs saved to Google Drive for persistence
 
 ---
+
+<div align="center">
+
+**Questions?** [Open an issue](../../issues) or [start a discussion](../../discussions)
+
+[← Back to main README](../README.md)
+
+</div>
