@@ -80,10 +80,10 @@ The NYC Sidewalk Time Machine provides:
 │                     DATA PIPELINE                          │
 ├────────────────────────────────────────────────────────────┤
 │                                                            │
-│  NYC Open Data → tile2net → GeoJSON → React Visualization │
+│  NYC Open Data → tile2net → GeoJSON → React Visualization  │
 │                                                            │
-│  [Satellite     [Computer   [Spatial    [Interactive      │
-│   Imagery]       Vision]     Data]       Maps & Charts]   │
+│  [Satellite     [Computer   [Spatial    [Interactive       │
+│   Imagery]       Vision]     Data]       Maps & Charts]    │
 │                                                            │
 └────────────────────────────────────────────────────────────┘
 ```
