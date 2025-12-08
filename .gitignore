@@ -9,6 +9,10 @@ app/public/data/tiles/
 *.geojson
 app/public/data/metadata.json
 
+# EXCEPTION: Allow README showcase images
+!docs/images/*.png
+!docs/images/**/*.png
+
 # Keep structure but ignore data
 !app/public/data/.gitkeep
 
