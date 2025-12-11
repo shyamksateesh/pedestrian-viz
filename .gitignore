@@ -1,0 +1,196 @@
+# NYC Sidewalk Time Machine - .gitignore
+# Comprehensive version based on your existing configuration
+
+# ============================================================================
+# DEPENDENCIES
+# ============================================================================
+node_modules/
+app/node_modules/
+package-lock.json
+.pnp
+.pnp.js
+
+# ============================================================================
+# DATA FILES - CRITICAL: DO NOT COMMIT (2+ GB)
+# ============================================================================
+# Your original data excludes
+data/
+app/public/data/tiles/
+
+# Specific tile data patterns
+app/public/data/tiles/manhattan_tile_*/
+app/public/data/tiles/*/imagery/*.png
+app/public/data/tiles/*/networks/*.geojson
+app/public/data/tiles/imagery/
+app/public/data/tiles/tiles_index.json
+
+# All data file types
+*.png
+*.geojson
+*.gpkg
+*.tif
+*.tiff
+*.jp2
+
+# EXCEPTION: Allow README showcase images
+!docs/images/*.png
+!docs/images/**/*.png
+
+# EXCEPTION: Allow favicon/logo
+!app/public/favicon.png
+!app/public/logo.png
+
+# Keep directory structure with .gitkeep files
+!app/public/data/.gitkeep
+!app/public/data/tiles/.gitkeep
+
+# ============================================================================
+# BUILD OUTPUTS
+# ============================================================================
+app/dist/
+app/build/
+dist/
+build/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# ============================================================================
+# ENVIRONMENT & SECRETS
+# ============================================================================
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.venv
+
+# ============================================================================
+# PYTHON
+# ============================================================================
+__pycache__/
+*.pyc
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Virtual environments
+venv/
+ENV/
+env/
+
+# ============================================================================
+# JUPYTER / COLAB NOTEBOOKS
+# ============================================================================
+notebooks/.ipynb_checkpoints/
+notebooks/**/.ipynb_checkpoints/
+*.ipynb_checkpoints
+.ipynb_checkpoints/
+
+# ============================================================================
+# IDE & EDITORS
+# ============================================================================
+# VSCode
+.vscode/
+*.code-workspace
+
+# IntelliJ / WebStorm / PyCharm
+.idea/
+*.iml
+*.iws
+
+# Vim
+*.swp
+*.swo
+*~
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+
+# ============================================================================
+# OPERATING SYSTEM
+# ============================================================================
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+.directory
+.Trash-*
+
+# ============================================================================
+# TESTING & COVERAGE
+# ============================================================================
+coverage/
+.nyc_output/
+*.lcov
+.pytest_cache/
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+
+# ============================================================================
+# MISC FRONTEND
+# ============================================================================
+.cache/
+.parcel-cache/
+.next/
+out/
+.nuxt/
+
+# Deployment
+.vercel
+.netlify
+
+# Type checking
+*.tsbuildinfo
+
+# ============================================================================
+# TEMPORARY FILES
+# ============================================================================
+*.tmp
+*.temp
+*.bak
+*.swp
+*.lock
+
+# ============================================================================
+# OPTIONAL: SAMPLE DATA (if you want to include small samples)
+# ============================================================================
+# Uncomment these if you want to allow a small sample dataset
+# !app/public/data/sample/
+# !app/public/data/sample/**/*.png
+# !app/public/data/sample/**/*.geojson
