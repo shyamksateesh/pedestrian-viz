@@ -1,7 +1,7 @@
 {
-  "name": "pedestrian_viz",
+  "name": "pedestrian-viz",
   "version": "1.0.0",
-  "homepage": "https://shyamksateesh.github.io/pedestrian_viz",
+  "homepage": "https://shyamksateesh.github.io/pedestrian-viz",
   "scripts": {
     "dev": "cd app && npm run dev",
     "build": "cd app && npm run build",

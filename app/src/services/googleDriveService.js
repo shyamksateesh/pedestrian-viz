@@ -3,7 +3,7 @@ const CORS_PROXY = 'https://corsproxy.io/?';
 
 // Load config from public folder
 const loadConfig = async () => {
-  const response = await fetch('/pedestrian_viz/drive-data-config.json');
+  const response = await fetch('/pedestrian-viz/drive-data-config.json');
   return response.json();
 };
 

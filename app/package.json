@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "homepage": "https://shyamksateesh.github.io/pedestrian_viz",
+  "homepage": "https://shyamksateesh.github.io/pedestrian-viz",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
