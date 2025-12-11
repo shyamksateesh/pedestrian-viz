@@ -10,7 +10,7 @@
 
 > A full-stack geospatial visualization tool combining computer vision, GIS processing, and interactive web technologies to analyze two decades of New York City's pedestrian infrastructure changes at unprecedented granularity.
 
-[Video Walkthrough](#) | [Report Issues](../../issues)
+[Video Walkthrough](#) | [Report Issues](../../issues) | [Try the tool out yourself!](https://shyamksateesh.github.io/pedestrian-viz/)
 
 ---
 
