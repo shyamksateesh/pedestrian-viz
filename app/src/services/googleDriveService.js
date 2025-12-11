@@ -1,4 +1,4 @@
-// CORS proxy for local development (REQUIRED!)
+// CORS proxy for ALL environments (GitHub Pages needs it too!)
 const CORS_PROXY = 'https://corsproxy.io/?';
 
 // Load config from public folder
@@ -7,17 +7,12 @@ const loadConfig = async () => {
   return response.json();
 };
 
-// Build Drive URL with proxy for localhost
+// Build Drive URL with CORS proxy
 const buildDriveUrl = (fileId, config) => {
   const driveUrl = `https://drive.google.com/uc?id=${fileId}&export=download`;
   
-  // Use CORS proxy ONLY on localhost
-  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-    return `${CORS_PROXY}${encodeURIComponent(driveUrl)}`;
-  }
-  
-  // Production (GitHub Pages): direct URL
-  return driveUrl;
+  // ALWAYS use CORS proxy (Google Drive doesn't send CORS headers)
+  return `${CORS_PROXY}${encodeURIComponent(driveUrl)}`;
 };
 
 // Fetch file from Google Drive
